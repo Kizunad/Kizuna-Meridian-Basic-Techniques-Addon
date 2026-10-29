@@ -1,0 +1,37 @@
+plugins { id 'fabric-loom' }
+
+description = '独立 GameTest 装配，验证真实目录、按卷学习和原版数据注册表。'
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.1'
+    mappings 'net.fabricmc:yarn:1.20.1+build.10:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.16.10'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.92.3+1.20.1'
+    modImplementation files('../../Kizuna-Meridian-Human-Addon/fabric/build/libs/kizuna-meridian-human-addon-fabric-0.1.0-SNAPSHOT.jar')
+    implementation project(':verification')
+    modCompileOnly files('../../Kizuna-Meridian-Vanilla-Damage-Addon/fabric/build/libs/kizuna-meridian-vanilla-damage-addon-fabric-0.1.0-SNAPSHOT.jar')
+    modImplementation files('../../Kizuna-Meridian-Technique-Framework/fabric/build/libs/kizuna-meridian-technique-framework-fabric-0.1.0-SNAPSHOT.jar')
+    modCompileOnly files('../../Kizuna-Meridian-Combat-UI-Addon/fabric/build/libs/kizuna-meridian-combat-ui-addon-fabric-0.1.1-SNAPSHOT.jar')
+    compileOnly files('../../Kizuna-Meridian-Combat-UI-Addon/shared/build/libs/kizuna-meridian-combat-ui-addon-shared-0.1.1-SNAPSHOT.jar')
+    modCompileOnly files('../../Kizuna-Meridian-Vanilla-Humanoid-Threatening/fabric/build/libs/kizuna-meridian-vanilla-humanoid-threatening-fabric-0.1.0-SNAPSHOT.jar')
+    compileOnly files('../../Kizuna-Meridian-Vanilla-Humanoid-Threatening/server/build/libs/kizuna-meridian-vanilla-humanoid-threatening-server-0.1.0-SNAPSHOT.jar')
+    // 测试入口与正式数据包分开加载，验证发行包自己的清单发现。
+    modLocalRuntime files(project(':fabric').tasks.named('jar'))
+}
+
+loom {
+    mods {
+        meridian_basic_techniques_test { sourceSet sourceSets.main }
+    }
+    runs {
+        gametest {
+            server()
+            name '基础功法数据 GameTest'
+            runDir 'build/gametest'
+            vmArg '-Dfabric-api.gametest'
+            vmArg '-Dfabric-api.gametest.report-file=build/gametest-results.xml'
+        }
+    }
+}
+
+apply from: '../../Kizuna-Meridian-Mod-Framework/scripts/full-assembly.gradle'

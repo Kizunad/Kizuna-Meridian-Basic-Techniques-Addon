@@ -1,0 +1,7 @@
+description = '双端安装的纯数据 Fabric 包，无入口或运行时代码。'
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+    from(project(':shared').sourceSets.main.resources)
+}

@@ -1,0 +1,38 @@
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'kizuna-meridian-basic-techniques-addon'
+include 'shared', 'fabric', 'verification', 'gametest'
+
+includeBuild(providers.gradleProperty('meridianFrameworkDir')
+        .getOrElse('../Kizuna-Meridian-Mod-Framework')) {
+    dependencySubstitution {
+        substitute module('local.meridian:client') using project(':client')
+        substitute module('local.meridian:server') using project(':server')
+    }
+}
+includeBuild(providers.gradleProperty('meridianTechniqueDir')
+        .getOrElse('../Kizuna-Meridian-Technique-Framework')) {
+    dependencySubstitution {
+        substitute module('local.meridian.technique:server') using project(':server')
+        substitute module('local.meridian.technique:fabric') using project(':fabric')
+    }
+}
+includeBuild(providers.gradleProperty('meridianHumanDir')
+        .getOrElse('../Kizuna-Meridian-Human-Addon')) {
+    dependencySubstitution {
+        substitute module('local.meridian.human:server') using project(':server')
+    }
+}
+
+includeBuild(providers.gradleProperty('meridianDamageDir')
+        .getOrElse('../Kizuna-Meridian-Vanilla-Damage-Addon')) {
+    dependencySubstitution {
+        substitute module('local.meridian.damage:server') using project(':server')
+    }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "meridian_basic_techniques",
+  "version": "${version}",
+  "name": "基础功法",
+  "description": "调息、轻步、蓄力：一书三卷的基础功法数据与客户端资源",
+  "authors": ["Kizunad"],
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "environment": "*",
+  "custom": {
+    "meridian_technique:catalogs": "data/meridian_basic_techniques/technique_catalog.txtpb"
+  },
+  "depends": {
+    "java": ">=17",
+    "minecraft": "1.20.1",
+    "fabricloader": ">=0.16.10",
+    "meridian_technique": "*",
+    "meridian_human_host": "*"
+  }
+}

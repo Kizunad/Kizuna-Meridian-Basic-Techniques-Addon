@@ -1,0 +1,250 @@
+# 数值为占位；费用是整式总额，按已绑定经脉均分。
+schema_version: 1
+namespace: "meridian_basic_techniques"
+binding_templates { id: "human:adult" version: 1 }
+books { id: "meridian_basic_techniques:basic" display_name: "基础功法" }
+volumes {
+  id: "meridian_basic_techniques:breath_volume"
+  book_id: "meridian_basic_techniques:basic"
+  display_name: "调息卷"
+  techniques { id: "meridian_basic_techniques:breath" version: 1 }
+}
+volumes {
+  id: "meridian_basic_techniques:light_step_volume"
+  book_id: "meridian_basic_techniques:basic"
+  display_name: "轻步卷"
+  techniques { id: "meridian_basic_techniques:light_step" version: 1 }
+}
+volumes {
+  id: "meridian_basic_techniques:charge_volume"
+  book_id: "meridian_basic_techniques:basic"
+  display_name: "蓄力卷"
+  techniques { id: "meridian_basic_techniques:charge" version: 1 }
+}
+
+definitions {
+  id: "meridian_basic_techniques:breath"
+  version: 1
+  category: RECOVERY
+  minimum_realm: WANDERING_QI
+  slots {
+    id: "source"
+    module: MERIDIAN
+    tags: "human:layer_wandering_qi"
+    minimum_count: 1
+    maximum_count: 16
+    require_opened: true
+  }
+  slots {
+    id: "breathing"
+    module: TISSUE
+    tags: "human:breathing"
+    minimum_count: 1
+    maximum_count: 16
+  }
+  slots {
+    id: "arms"
+    module: TISSUE
+    tags: "human:arm_muscle"
+    minimum_count: 1
+    maximum_count: 16
+  }
+  slots {
+    id: "legs"
+    module: TISSUE
+    tags: "human:leg_muscle"
+    minimum_count: 1
+    maximum_count: 16
+  }
+  cost {
+    qi {
+      slot_id: "source"
+      attribute: "meridian:none"
+      phase: FREE
+      amount { value: 10 unit: QI }
+      distribution: EVEN
+    }
+  }
+  phases {
+    warmup_millis: 1100
+    active_millis: 0
+    recovery_millis: 900
+    interruptible_by_damage: true
+  }
+  cooldown_millis: 20000
+  effects {
+    at_millis: 0
+    presentation {
+      id: "meridian_basic_techniques:technique_breath"
+      duration: UNTIL_RECOVERY_END
+      start_millis: 0
+    }
+  }
+  effects {
+    at_millis: 1100
+    tissue_modifier {
+      slot_id: "arms"
+      curve { offset_millis: 0 value: 0 }
+      curve { offset_millis: 2000 value: 1 }
+      curve { offset_millis: 8000 value: 1 }
+      curve { offset_millis: 20000 value: 0 }
+      strength_peak { value: 1 unit: RATIO }
+      burst_peak { value: 1 unit: RATIO }
+      endurance_peak { value: 1 unit: RATIO }
+      recovery_peak { value: 4 unit: RATIO }
+    }
+  }
+  effects {
+    at_millis: 1100
+    tissue_modifier {
+      slot_id: "legs"
+      curve { offset_millis: 0 value: 0 }
+      curve { offset_millis: 2000 value: 1 }
+      curve { offset_millis: 8000 value: 1 }
+      curve { offset_millis: 20000 value: 0 }
+      strength_peak { value: 1 unit: RATIO }
+      burst_peak { value: 1 unit: RATIO }
+      endurance_peak { value: 1 unit: RATIO }
+      recovery_peak { value: 4 unit: RATIO }
+    }
+  }
+  presentation {
+    icon_id: "meridian_basic_techniques:breath"
+    display_name: "调息"
+    description: "调匀呼吸，逐渐提高双臂与双腿的恢复能力。适合交战间隙使用，起手和收势期间受伤会中断。"
+  }
+}
+
+definitions {
+  id: "meridian_basic_techniques:light_step"
+  version: 1
+  category: MOVEMENT
+  minimum_realm: WANDERING_QI
+  slots {
+    id: "source"
+    module: MERIDIAN
+    tags: "human:foot_meridian"
+    minimum_count: 1
+    maximum_count: 16
+    require_opened: true
+  }
+  slots {
+    id: "legs"
+    module: TISSUE
+    tags: "human:leg_muscle"
+    minimum_count: 4
+    maximum_count: 4
+    minimum_strength { value: 510 unit: NEWTON }
+  }
+  cost {
+    qi {
+      slot_id: "source"
+      attribute: "meridian:none"
+      phase: FREE
+      amount { value: 15 unit: QI }
+      distribution: EVEN
+    }
+    work {
+      slot_id: "legs"
+      force { value: 0 unit: NEWTON }
+      power { value: 200 unit: WATT }
+      duration { value: 0.5 unit: SECOND }
+    }
+  }
+  phases {
+    warmup_millis: 280
+    active_millis: 0
+    recovery_millis: 200
+    interruptible_by_damage: false
+  }
+  cooldown_millis: 3000
+  effects {
+    at_millis: 0
+    presentation {
+      id: "meridian_basic_techniques:technique_dash"
+      duration: UNTIL_RECOVERY_END
+      start_millis: 0
+    }
+  }
+  effects {
+    at_millis: 280
+    impulse { direction: INPUT speed { value: 6 unit: METERS_PER_SECOND } input_default_direction: FORWARD }
+  }
+  effects {
+    at_millis: 280
+    impulse { direction: UP speed { value: 4 unit: METERS_PER_SECOND } }
+  }
+  presentation {
+    icon_id: "meridian_basic_techniques:light_step"
+    display_name: "轻步"
+    description: "提气跃步，向移动输入方向冲出并轻轻跃起。没有方向输入时向前出步，可用于接近敌人或拉开距离。"
+  }
+}
+
+definitions {
+  id: "meridian_basic_techniques:charge"
+  version: 1
+  category: BUFF
+  minimum_realm: WANDERING_QI
+  slots {
+    id: "source"
+    module: MERIDIAN
+    tags: "human:hand_meridian"
+    minimum_count: 1
+    maximum_count: 16
+    require_opened: true
+  }
+  slots {
+    id: "arms"
+    module: TISSUE
+    tags: "human:arm_muscle"
+    minimum_count: 1
+    maximum_count: 16
+  }
+  cost {
+    qi {
+      slot_id: "source"
+      attribute: "meridian:none"
+      phase: FREE
+      amount { value: 15 unit: QI }
+      distribution: EVEN
+    }
+  }
+  phases {
+    warmup_millis: 1600
+    active_millis: 0
+    recovery_millis: 400
+    interruptible_by_damage: true
+  }
+  cooldown_millis: 10000
+  effects {
+    at_millis: 0
+    presentation {
+      id: "meridian_basic_techniques:technique_charge"
+      duration: UNTIL_RECOVERY_END
+      start_millis: 0
+    }
+  }
+  effects {
+    at_millis: 1600
+    tissue_modifier {
+      slot_id: "arms"
+      curve { offset_millis: 0 value: 0 }
+      curve { offset_millis: 1500 value: 1 }
+      curve { offset_millis: 2500 value: 1 }
+      curve { offset_millis: 5000 value: 0 }
+      curve { offset_millis: 6000 value: -0.5 }
+      curve { offset_millis: 9000 value: -0.5 }
+      curve { offset_millis: 10000 value: 0 }
+      strength_peak { value: 1.3 unit: RATIO }
+      burst_peak { value: 1.3 unit: RATIO }
+      endurance_peak { value: 1 unit: RATIO }
+      recovery_peak { value: 1 unit: RATIO }
+    }
+  }
+  presentation {
+    icon_id: "meridian_basic_techniques:charge"
+    display_name: "蓄力"
+    description: "凝聚双臂的力量，短时间提高力量与爆发。效果退去后会有一段乏力期，适合在进攻前准备。"
+  }
+}

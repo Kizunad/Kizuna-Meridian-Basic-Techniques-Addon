@@ -1,0 +1,369 @@
+package dev.kizuna.meridian.human.fabric;
+
+import dev.kizuna.meridian.humanoid.fabric.HumanoidHealthHost;
+import dev.kizuna.meridian.protocol.HealthHostProtobuf;
+import dev.kizuna.meridian.protocol.pb.BodyMessages.BodySnapshot;
+import dev.kizuna.meridian.protocol.pb.BodyMessages.HealthTarget;
+import dev.kizuna.meridian.protocol.pb.HealthHostMessages.HealthHostRequest;
+import dev.kizuna.meridian.protocol.pb.HealthMessages.DamageBody;
+import dev.kizuna.meridian.protocol.pb.HealthMessages.DamageKind;
+import dev.kizuna.meridian.protocol.pb.MeridianMessages.BodyCommand;
+import dev.kizuna.meridian.protocol.pb.MeridianMessages.RequestEnvelope;
+import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastRequest;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
+import dev.kizuna.meridian.vanilla.DamagePreferences;
+import dev.kizuna.meridian.vanilla.fabric.VanillaDamageFabric;
+import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.mob.VindicatorEntity;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.network.packet.s2c.play.EntityDamageS2CPacket;
+import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.test.GameTest;
+import net.minecraft.test.TestContext;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.world.GameMode;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/** 用正式调度、伤害宿主与聊天观察验证逐击命中，不手动重置原版无敌帧。 */
+public final class KnockMultihitGameTest implements FabricGameTest {
+    private static final String PREFIX = "meridian_door_breaker:";
+    private static final String ARM = "left_upper_arm";
+    private static final List<Long> HIT_TICKS = List.of(18L, 25L, 34L);
+    private static final int OBSERVE_TICKS = 38;
+    private static final int LEAVE_TICKS = 20;
+    private static final int MAX_SEED = 100_000;
+    private static final int COMMAND_PERMISSION = 2;
+    private static final int HURT_DURATION = 10;
+    private static final int TARGET_HEIGHT = 2;
+    private static final int TARGET_Z = 3;
+    private static final double TARGET_DISTANCE = 2;
+    private static final double LEAVE_DISTANCE = 8;
+    private static final double IRON_AXE_DAMAGE = 9;
+    private static final double TOTAL_MULTIPLIER = 1.5;
+    private static final double RAW_TOTAL = IRON_AXE_DAMAGE * TOTAL_MULTIPLIER;
+    private static final double EPSILON = 0.0001;
+    private static boolean observerInstalled;
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void playerMainHandHitsThreeTimesAndLogsEachHit(TestContext context) {
+        // 主手完整结算，并核对玩家实际收到的三条调试日志。
+        run(context, Mode.MAIN_HAND);
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void playerOffhandHitsThreeTimes(TestContext context) {
+        // 副手走相同节奏与钝击冷却标签，不能漏掉中间一击。
+        run(context, Mode.OFF_HAND);
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void leavingAfterFirstHitMakesLaterHitsMiss(TestContext context) {
+        // 目标在第一下后离开范围，后两击按当时世界位置重新选目标。
+        run(context, Mode.LEAVE);
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void everyKnockSpillsFromAnAlreadyDestroyedArm(TestContext context) {
+        // 黑臂的三段伤害各走一次正式蔓延事务，日志保留三份蔓延明细。
+        run(context, Mode.SPILLOVER);
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void vindicatorUsesTheSameThreeAuthoritativeHits(TestContext context) {
+        // 管理命令生成真炁卫道士，施放继续使用与玩家相同的正式目录。
+        run(context, Mode.MOB);
+    }
+
+    private static void run(TestContext context, Mode mode) {
+        // 场地隔离且固定目标抗击退；观察不修改命中、时钟、冷却或伤害倍率。
+        var fixture = PlayerAssemblyGameTest.prepared(context);
+        var target = target(context);
+        LivingEntity actor = fixture.player;
+        if (mode == Mode.MOB) {
+            actor = summon(context, fixture);
+        }
+        var cast = new Trial(fixture, actor, target, mode);
+        try {
+            prepare(context, cast);
+            long started = context.getWorld().getTime();
+            start(context, cast);
+            if (mode == Mode.LEAVE) {
+                context.waitAndRun(LEAVE_TICKS, () -> target.setPosition(target.getPos().add(LEAVE_DISTANCE, 0, 0)));
+            }
+            context.waitAndRun(OBSERVE_TICKS, () -> {
+                try (cast) {
+                    verify(context, cast, started);
+                    context.complete();
+                }
+            });
+        } catch (RuntimeException | Error failure) {
+            cast.close();
+            throw failure;
+        }
+    }
+
+    private static ObservedVillager target(TestContext context) {
+        // 固定命中手臂只控制随机种子，身体创建与健康结算仍由类人宿主负责。
+        installObserver();
+        var target = new ObservedVillager(context.getWorld());
+        Vec3d pos = Vec3d.ofBottomCenter(context.getAbsolutePos(new BlockPos(1, TARGET_HEIGHT, TARGET_Z)));
+        target.refreshPositionAndAngles(pos.x, pos.y, pos.z, 0, 0);
+        target.setAiDisabled(true /* aiDisabled */);
+        target.setNoGravity(true /* noGravity */);
+        target.getAttributeInstance(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE).setBaseValue(1);
+        context.getWorld().spawnEntity(target);
+        target.armSeed = armSeed(inspect(target));
+        return target;
+    }
+
+    private static LivingEntity summon(TestContext context, BasicTestPlayer fixture) {
+        // 指定档位仅用于准备，自动学卷和初始真元沿用公开管理入口。
+        var source = fixture.player.getCommandSource().withLevel(COMMAND_PERMISSION);
+        int result = fixture.player.getServer().getCommandManager().executeWithPrefix(source,
+                "meridian humanoid summon vindicator true_qi");
+        context.assertTrue(result > 0, "无法生成真炁卫道士");
+        var mob = context.getWorld().getEntitiesByClass(VindicatorEntity.class,
+                fixture.player.getBoundingBox().expand(1), entity -> true)
+                .stream().findFirst().orElseThrow();
+        mob.setAiDisabled(true /* aiDisabled */);
+        mob.setNoGravity(true /* noGravity */);
+        return mob;
+    }
+
+    private static void prepare(TestContext context, Trial trial) {
+        // 玩家转为生存以验证末击磨损；受击目标和出手者始终在同一独立场地。
+        var actor = trial.actor();
+        var fixture = trial.fixture();
+        Mode mode = trial.mode();
+        if (mode == Mode.MOB) {
+            fixture.player.changeGameMode(GameMode.SPECTATOR);
+        } else {
+            fixture.player.changeGameMode(GameMode.SURVIVAL);
+        }
+        Vec3d position = trial.target().getPos().add(0, 0, -TARGET_DISTANCE);
+        actor.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
+        Hand hand = Hand.MAIN_HAND;
+        if (mode == Mode.OFF_HAND) {
+            hand = Hand.OFF_HAND;
+        }
+        actor.setStackInHand(hand, new ItemStack(Items.IRON_AXE));
+        TechniqueFabric.service().learn(actor.getUuid(), PREFIX + "upper");
+        var viewer = fixture.player;
+        int watched = viewer.getServer().getCommandManager().executeWithPrefix(
+                viewer.getCommandSource().withLevel(COMMAND_PERMISSION), "meridian_debug damage watch on");
+        context.assertTrue(watched == 1, "伤害日志命令失败");
+        if (mode == Mode.SPILLOVER) {
+            destroyArm(context, trial.target());
+        }
+        fixture.connection.packets.clear();
+    }
+
+    private static void start(TestContext context, Trial trial) {
+        // 普通起手保留绝对时间零点，前两段也必须由功法调度器分发。
+        var actor = trial.actor();
+        var technique = TechniqueReference.newBuilder()
+                .setId(PREFIX + "knock")
+                .setVersion(1)
+                .build();
+        String bodyId = trial.fixture().body().snapshot().id().value();
+        if (trial.mode() == Mode.MOB) {
+            bodyId = inspect(actor).getId();
+        }
+        var request = CastRequest.newBuilder()
+                .setBodyId(bodyId)
+                .setTechnique(technique)
+                .setCastId(UUID.randomUUID().toString())
+                .setTargetId(trial.target().getUuidAsString())
+                .build();
+        var result = TechniqueFabric.service().cast(actor.getUuid(), request);
+        context.assertTrue(result.getFailure() == TechniqueFailure.TECHNIQUE_FAILURE_UNSPECIFIED,
+                "叩门起手失败：" + result);
+    }
+
+    private static void verify(TestContext context, Trial trial, long started) {
+        // 每次受伤既有已提交回执又重置闪红时间；末击后工具只磨损一次。
+        var target = trial.target();
+        Mode mode = trial.mode();
+        int expected = HIT_TICKS.size();
+        if (mode == Mode.LEAVE) {
+            expected = 1;
+        }
+        context.assertTrue(target.events.size() == expected && target.hits.size() == expected,
+                "逐击结算次数错误：events=" + target.events.size() + " hits=" + target.hits);
+        for (int index = 0; index < expected; index++) {
+            var hit = target.hits.get(index);
+            long offset = hit.tick() - started;
+            context.assertTrue(Math.abs(offset - HIT_TICKS.get(index)) <= 1, "命中时刻错误：" + offset);
+            context.assertTrue(hit.hurtTime() == HURT_DURATION, "命中没有重新闪红：" + hit);
+            var event = target.events.get(index);
+            var result = event.result();
+            context.assertTrue(result.body().getRevision() == result.before().getRevision() + 1,
+                    "一击没有对应唯一身体事务");
+            if (mode == Mode.SPILLOVER) {
+                context.assertTrue(result.health().getDamageResolution().hasSpillover(), "本击未蔓延");
+            }
+        }
+        if (mode != Mode.LEAVE) {
+            context.assertTrue(Math.abs(target.hits.stream().mapToDouble(Hit::dose).sum() - RAW_TOTAL) < EPSILON,
+                    "三击原始总剂量不是 1.5 倍");
+        }
+        verifyLogsAndWear(context, trial, expected);
+    }
+
+    private static void verifyLogsAndWear(TestContext context, Trial trial, int expected) {
+        // 调试观察只显示本人参与的伤害；生物出手由回执证明，玩家另查实际聊天包。
+        var actor = trial.actor();
+        var packets = trial.fixture().connection.packets;
+        Mode mode = trial.mode();
+        if (mode == Mode.MOB) {
+            context.assertTrue(actor.getMainHandStack().getDamage() == 0, "生物错误扣耐久");
+            return;
+        }
+        var messages = packets.stream()
+                .filter(GameMessageS2CPacket.class::isInstance).map(GameMessageS2CPacket.class::cast)
+                .map(packet -> packet.content().getString()).filter(line -> line.startsWith("[伤害]")).toList();
+        context.assertTrue(messages.size() == expected, "伤害聊天条数错误：" + messages);
+        long feedback = packets.stream()
+                .filter(EntityDamageS2CPacket.class::isInstance).map(EntityDamageS2CPacket.class::cast)
+                .filter(packet -> packet.entityId() == trial.target().getId()).count();
+        context.assertTrue(feedback == expected, "客户端受击通知条数错误：" + feedback);
+        if (mode == Mode.SPILLOVER) {
+            context.assertTrue(messages.stream().allMatch(line -> line.contains("溢出")), "日志缺少蔓延明细");
+        }
+        Hand hand = Hand.MAIN_HAND;
+        if (mode == Mode.OFF_HAND) {
+            hand = Hand.OFF_HAND;
+        }
+        context.assertTrue(actor.getStackInHand(hand).getDamage() == 1, "末击未只扣一次铁斧耐久");
+    }
+
+    private static BodySnapshot inspect(LivingEntity entity) {
+        // 读取正式类人健康宿主，不依赖其内部存储字段。
+        var request = HealthHostRequest.newBuilder()
+                .setProtocolVersion(1)
+                .setRequestId(UUID.randomUUID().toString())
+                .setSubjectId(entity.getUuidAsString())
+                .setInspect(true /* inspect */)
+                .build();
+        var response = HealthHostProtobuf.decodeResponse(new HumanoidHealthHost()
+                .exchange(HealthHostProtobuf.encodeRequest(request)));
+        if (!response.hasBody()) {
+            throw new AssertionError("类人身体不可用：" + response);
+        }
+        return response.getBody();
+    }
+
+    private static long armSeed(BodySnapshot body) {
+        // 使用当前伤害选点配置，随机种子只固定碰撞部位，不改变剂量与事务。
+        var config = FabricLoader.getInstance().getConfigDir().resolve("meridian-vanilla-damage.toml");
+        var preferences = DamagePreferences.load(config);
+        for (long seed = 0; seed < MAX_SEED; seed++) {
+            double roll = Random.create(seed).nextDouble();
+            if (preferences.select(body, "minecraft:unknown", roll).orElseThrow().getPartId().equals(ARM)) {
+                return seed;
+            }
+        }
+        throw new AssertionError("找不到手臂选点种子");
+    }
+
+    private static void destroyArm(TestContext context, LivingEntity target) {
+        // 准备已损毁部位，后续每次真实打击都必须由既有伤害策略蔓延。
+        var body = inspect(target);
+        double hp = body.getPartStatesList().stream().filter(part -> part.getId().equals(ARM))
+                .findFirst().orElseThrow().getHp();
+        var hit = HealthTarget.newBuilder().setPartId(ARM).build();
+        var damage = DamageBody.newBuilder()
+                .setSourceId("test:knock")
+                .setDamageType("test:arm")
+                .setKind(DamageKind.CUSTOM)
+                .setHit(hit)
+                .setDamageHp(hp)
+                .build();
+        var command = BodyCommand.newBuilder()
+                .setBodyId(body.getId())
+                .setExpectedRevision(body.getRevision())
+                .setDamageBody(damage)
+                .build();
+        String id = UUID.randomUUID().toString();
+        var envelope = RequestEnvelope.newBuilder()
+                .setProtocolVersion(1)
+                .setRequestId(id)
+                .setBodyCommand(command)
+                .build();
+        var request = HealthHostRequest.newBuilder()
+                .setProtocolVersion(1)
+                .setRequestId(id)
+                .setSubjectId(target.getUuidAsString())
+                .setEffect(envelope)
+                .build();
+        var response = HealthHostProtobuf.decodeResponse(new HumanoidHealthHost()
+                .exchange(HealthHostProtobuf.encodeRequest(request)));
+        context.assertTrue(response.hasBody(), "黑臂准备失败：" + response);
+    }
+
+    private static void installObserver() {
+        // 只记录测试实体的已提交事件，其他测试与正式宿主不积累额外状态。
+        if (!observerInstalled) {
+            VanillaDamageFabric.registerDamageObserver(event -> {
+                if (event.target() instanceof ObservedVillager target) {
+                    target.events.add(event);
+                }
+            });
+            observerInstalled = true;
+        }
+    }
+
+    private enum Mode { MAIN_HAND, OFF_HAND, LEAVE, SPILLOVER, MOB }
+    private record Hit(long tick, float dose, int hurtTime) { }
+
+    private record Trial(BasicTestPlayer fixture, LivingEntity actor, ObservedVillager target, Mode mode)
+            implements AutoCloseable {
+        @Override
+        public void close() {
+            // 无论断言成功或失败，移除测试目标及生物出手者并断开在线玩家。
+            target.discard();
+            if (actor != fixture.player) {
+                actor.discard();
+            }
+            fixture.close();
+        }
+    }
+
+    private static final class ObservedVillager extends VillagerEntity {
+        private final List<Hit> hits = new ArrayList<>();
+        private final List<VanillaDamageFabric.DamageEvent> events = new ArrayList<>();
+        private long armSeed;
+
+        private ObservedVillager(ServerWorld world) {
+            // 保留原版村民身份，让类人宿主自动绑定正式成人模板。
+            super(EntityType.VILLAGER, world);
+        }
+
+        @Override
+        public boolean damage(DamageSource source, float amount) {
+            // 只固定命中手臂，记录原版 damage 返回后的闪红状态，不清零受伤冷却。
+            getRandom().setSeed(armSeed);
+            boolean accepted = super.damage(source, amount);
+            if (accepted) {
+                hits.add(new Hit(getWorld().getTime(), amount, hurtTime));
+            }
+            return accepted;
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+  "book.meridian_basic_techniques.basic": "基础功法",
+  "volume.meridian_basic_techniques.breath_volume": "调息卷",
+  "item.meridian_basic_techniques.breath_volume_scroll": "基础功法·调息卷",
+  "volume.meridian_basic_techniques.light_step_volume": "轻步卷",
+  "item.meridian_basic_techniques.light_step_volume_scroll": "基础功法·轻步卷",
+  "volume.meridian_basic_techniques.charge_volume": "蓄力卷",
+  "item.meridian_basic_techniques.charge_volume_scroll": "基础功法·蓄力卷",
+  "technique.meridian_basic_techniques.breath": "调息",
+  "technique.meridian_basic_techniques.light_step": "轻步",
+  "technique.meridian_basic_techniques.charge": "蓄力"
+}

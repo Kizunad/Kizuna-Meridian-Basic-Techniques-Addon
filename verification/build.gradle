@@ -1,0 +1,17 @@
+description = '仅用于目录验证和测试身体宿主；不装入正式 Fabric 包。'
+
+dependencies {
+    api project(':shared')
+    api 'local.meridian.technique:server'
+    api 'local.meridian.human:server'
+    api 'local.meridian:server'
+    api 'local.meridian.damage:server'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+}
+
+test {
+    useJUnit()
+    systemProperty 'basicTechniques.fabricJar', project(':fabric').tasks.named('jar').get().archiveFile.get().asFile
+    dependsOn ':fabric:jar'
+}

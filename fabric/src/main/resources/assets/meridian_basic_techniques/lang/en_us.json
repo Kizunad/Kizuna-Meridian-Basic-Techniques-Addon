@@ -1,0 +1,12 @@
+{
+  "book.meridian_basic_techniques.basic": "Basic Techniques",
+  "volume.meridian_basic_techniques.breath_volume": "Breathing",
+  "item.meridian_basic_techniques.breath_volume_scroll": "Basic Techniques·Breathing",
+  "volume.meridian_basic_techniques.light_step_volume": "Light Step",
+  "item.meridian_basic_techniques.light_step_volume_scroll": "Basic Techniques·Light Step",
+  "volume.meridian_basic_techniques.charge_volume": "Charge",
+  "item.meridian_basic_techniques.charge_volume_scroll": "Basic Techniques·Charge",
+  "technique.meridian_basic_techniques.breath": "Breathing",
+  "technique.meridian_basic_techniques.light_step": "Light Step",
+  "technique.meridian_basic_techniques.charge": "Charge"
+}

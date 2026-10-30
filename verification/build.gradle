@@ -2,12 +2,12 @@ description = '仅用于目录验证和测试身体宿主；不装入正式 Fabr
 
 dependencies {
     api project(':shared')
-    api 'local.meridian.technique:server'
-    api 'local.meridian.human:server'
+    api 'dev.kizuna.meridian.technique:server'
+    api 'dev.kizuna.meridian.human:server'
     api 'local.meridian:server'
-    api 'local.meridian.damage:server'
-    testImplementation 'junit:junit:4.13.2'
-    testImplementation 'com.google.code.gson:gson:2.10.1'
+    api 'dev.kizuna.meridian.vanilla:server'
+    testImplementation libs.junit4
+    testImplementation libs.gson
 }
 
 test {

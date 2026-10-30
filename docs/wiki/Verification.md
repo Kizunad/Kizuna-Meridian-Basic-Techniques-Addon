@@ -54,7 +54,8 @@ ID、时刻（±1 tick）、位置、`PLAYERS` 类别、音量与音调抖动区
 用例先断言目录里确有声音，免得装配到无声音的旧 JAR 时期望与实际同为空而空过。
 `gametest` 的 `modLocalRuntime files(...)` 在 Gradle 配置阶段重映射：目录改动后同一次调用里新打的 JAR 赶不上，
 GameTest 跑的仍是上一版目录。改目录后先单独执行一次 `bash "gradlew" :fabric:build`；
-叩门与破门的声音读 Door-Breaker 目录，也要先在 Door-Breaker 仓执行 `:fabric:build`。
+叩门与破门的声音读 Door-Breaker 目录；Door-Breaker 在 settings 中以源码组合，GameTest 配置时按坐标构建并装入其当前目录，
+不必再先到 Door-Breaker 仓单独打包。
 `LegTechniqueGameTest` 通过 1200 tick 步行加 300 tick 疾跑的实际位置采样积累疲劳，
 验证轻步与撞门之后各连续施放三次，每次轻步还支付一次跃步做功；期间不治疗或额外恢复体力。
 八成疲劳或九成腿肌损伤仍能完成六肌绑定，但撞门做功预检返回 `INSUFFICIENT_CAPABILITY`，

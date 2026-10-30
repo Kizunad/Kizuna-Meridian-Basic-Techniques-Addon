@@ -9,9 +9,12 @@ import dev.kizuna.meridian.protocol.pb.MeridianMessages.ExertTissue;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.ExertTissues;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.RequestEnvelope;
 import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
+import dev.kizuna.meridian.technique.fabric.world.TechniqueLeaps;
+import dev.kizuna.meridian.technique.fabric.world.TechniqueStatusBenefits;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastRequest;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
+import dev.kizuna.meridian.technique.server.TechniqueBinder;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -24,43 +27,45 @@ import net.minecraft.util.math.Vec3d;
 import java.util.List;
 import java.util.UUID;
 
-/** 正式走路与施放做功产生疲劳，能力门槛保留余量但仍拒绝严重失能。 */
+/** 正式步行、疾跑与施放产生疲劳，六块腿肌共同做功并拒绝超出预算的活动。 */
 public final class LegTechniqueGameTest implements FabricGameTest {
     private static final String STEP = "meridian_basic_techniques:light_step";
     private static final String RAM = "meridian_door_breaker:ram";
     private static final String LEG_TAG = "human:leg_muscle";
-    private static final int WALK_TICKS = 600;
-    private static final int TEST_TIMEOUT = 1100;
+    private static final int WALK_TICKS = 1200;
+    private static final int SPRINT_TICKS = 300;
+    private static final int MOTION_TICKS = WALK_TICKS + SPRINT_TICKS;
+    private static final int TEST_TIMEOUT = 2400;
     private static final int CAST_COUNT = 3;
+    private static final int WORKING_LEG_COUNT = 6;
     private static final int COOLDOWN_MARGIN = 2;
     private static final int PLAYER_HEIGHT = 2;
     private static final long MILLIS_PER_TICK = 50;
     private static final double WALK_DELTA = 0.1;
-    private static final double WALK_MINIMUM_FATIGUE = 5;
+    private static final double MOTION_MINIMUM_FATIGUE = 35;
     private static final double HEAVY_FATIGUE_RATIO = 0.8;
     private static final double INJURY_RATIO = 0.9;
     private static final double BURST_FRACTION = 0.25;
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = TEST_TIMEOUT)
-    public void lightStepAfterThirtySecondsWalkingCanCastThreeTimes(TestContext context) {
-        // 以位置采样驱动真实步行，再按正常冷却连续施放，期间不治疗或补体力。
+    public void lightStepAfterWalkingAndSprintingCanCastAndExertThreeTimes(TestContext context) {
+        // 真实走六十秒再疾跑十五秒，每次施放结束后还要支付一次跃步做功。
         walkThenCast(context, STEP);
     }
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = TEST_TIMEOUT)
-    public void ramAfterThirtySecondsWalkingCanCastThreeTimes(TestContext context) {
-        // 撞门复用相同腿肌门槛，连续三次付费包含冲步及收势的真实身体时钟。
+    public void ramAfterWalkingAndSprintingCanCastThreeTimes(TestContext context) {
+        // 相同运动负载后连续三次撞门，期间不治疗、不补体力或更换身体。
         walkThenCast(context, RAM);
     }
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
     public void exhaustedLegsRejectBothTechniques(TestContext context) {
-        // 通过普通做功消耗八成耐力，不能因门槛留余量让严重疲劳继续施放。
+        // 通过普通做功消耗八成耐力；绑定仍成功，但实际功率预算不足必须拒绝。
         for (String technique : List.of(STEP, RAM)) {
             try (var fixture = prepared(context, technique)) {
                 exhaust(context, fixture);
-                context.assertTrue(cast(fixture, technique) == TechniqueFailure.INSUFFICIENT_CAPABILITY,
-                        "重疲劳仍可施放：" + technique);
+                assertWorkRejected(context, fixture, technique);
             }
         }
         context.complete();
@@ -68,22 +73,21 @@ public final class LegTechniqueGameTest implements FabricGameTest {
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
     public void seriouslyInjuredLegsRejectBothTechniques(TestContext context) {
-        // 精确腿肌损伤经过健康事务，保留剩余 HP 以专门检验有效力量拒绝。
+        // 保留一成组织 HP，绑定仍成功，伤势压低的做功预算负责拒绝。
         for (String technique : List.of(STEP, RAM)) {
             try (var fixture = prepared(context, technique)) {
                 injure(context, fixture);
-                context.assertTrue(cast(fixture, technique) == TechniqueFailure.INSUFFICIENT_CAPABILITY,
-                        "腿部重伤仍可施放：" + technique);
+                assertWorkRejected(context, fixture, technique);
             }
         }
         context.complete();
     }
 
     private static void walkThenCast(TestContext context, String technique) {
-        // 每 tick 小幅往返且保持落地，让 HumanMovementObserver 识别步行而非传送或冲刺。
+        // 位置采样持续往返，后十五秒同时设置疾跑标记，让宿主分别记入两种运动负载。
         var fixture = prepared(context, technique);
         Vec3d origin = fixture.player.getPos();
-        for (int tick = 1; tick <= WALK_TICKS; tick++) {
+        for (int tick = 1; tick <= MOTION_TICKS; tick++) {
             int step = tick;
             later(context, tick, fixture, () -> {
                 double offset = 0;
@@ -91,17 +95,19 @@ public final class LegTechniqueGameTest implements FabricGameTest {
                     offset = WALK_DELTA;
                 }
                 fixture.player.setPosition(origin.add(offset, 0, 0));
+                fixture.player.setSprinting(step > WALK_TICKS);
                 fixture.player.setOnGround(true /* onGround */);
             });
         }
-        later(context, WALK_TICKS + COOLDOWN_MARGIN, fixture, () -> {
+        later(context, MOTION_TICKS + COOLDOWN_MARGIN, fixture, () -> {
+            fixture.player.setSprinting(false /* sprinting */);
             var host = fixture.body();
             host.observe(now(fixture), HumanPlayerBody.Motion.IDLE);
             var body = host.snapshot();
             double fatigue = body.tissueStates().stream()
                     .filter(tissue -> tissue.id().value().equals("left_rectus_femoris"))
                     .findFirst().orElseThrow().fatigue();
-            context.assertTrue(fatigue > WALK_MINIMUM_FATIGUE, "步行没有实际积累腿肌疲劳：" + fatigue);
+            context.assertTrue(fatigue > MOTION_MINIMUM_FATIGUE, "步行和疾跑没有实际积累腿肌疲劳：" + fatigue);
             repeat(context, fixture, technique, 0);
         });
     }
@@ -111,20 +117,51 @@ public final class LegTechniqueGameTest implements FabricGameTest {
         TechniqueFailure failure = cast(fixture, technique);
         context.assertTrue(failure == TechniqueFailure.TECHNIQUE_FAILURE_UNSPECIFIED,
                 "连续第 " + (completed + 1) + " 次失败：" + technique + " " + failure);
-        if (completed + 1 == CAST_COUNT) {
-            fixture.close();
-            context.complete();
-            return;
-        }
         var definition = TechniqueFabric.service().registry().findLatest(technique).orElseThrow();
         var phases = definition.getPhases();
         long duration = phases.getWarmupMillis() + phases.getActiveMillis() + phases.getRecoveryMillis();
-        long delay = (duration + definition.getCooldownMillis()) / MILLIS_PER_TICK + COOLDOWN_MARGIN;
-        later(context, delay, fixture, () -> repeat(context, fixture, technique, completed + 1));
+        long finishDelay = duration / MILLIS_PER_TICK + COOLDOWN_MARGIN;
+        later(context, finishDelay, fixture, () -> {
+            if (technique.equals(STEP)) {
+                var profile = definition.getEffects(0).getStatusBenefit().getLeap();
+                boolean paid = TechniqueFabric.service().exertLeap(fixture.player.getUuid(), definition,
+                        profile, UUID.randomUUID().toString());
+                context.assertTrue(paid, "运动后轻身跃步无法支付做功");
+            }
+            if (completed + 1 == CAST_COUNT) {
+                fixture.close();
+                context.complete();
+            } else {
+                long delay = definition.getCooldownMillis() / MILLIS_PER_TICK + COOLDOWN_MARGIN;
+                later(context, delay, fixture, () -> repeat(context, fixture, technique, completed + 1));
+            }
+        });
+    }
+
+    private static void assertWorkRejected(TestContext context, BasicTestPlayer fixture, String technique) {
+        // 移除力量门槛后先证明绑定成功，再检查各式真正支付做功的入口。
+        var definition = TechniqueFabric.service().registry().findLatest(technique).orElseThrow();
+        var binding = TechniqueBinder.bind(fixture.body().snapshot(), definition);
+        context.assertTrue(binding.hasBinding(), "槽位仍拦截 " + technique + "：" + binding.getFailure());
+        if (technique.equals(STEP)) {
+            TechniqueStatusBenefits.apply(fixture.player, definition.getEffects(0).getStatusBenefit());
+            fixture.player.setOnGround(true /* onGround */);
+            context.assertTrue(TechniqueLeaps.jump(fixture.player) == TechniqueLeaps.Jump.ORDINARY,
+                    "轻身未在做功预算不足时退回普通跳");
+        } else {
+            TechniqueFailure failure = cast(fixture, technique);
+            context.assertTrue(failure == TechniqueFailure.INSUFFICIENT_CAPABILITY,
+                    "撞门未因做功不足拒绝：" + failure);
+        }
     }
 
     private static BasicTestPlayer prepared(TestContext context, String technique) {
         // 正式玩家开脉补元并学卷；不会改变人体基础力量或组织恢复规则。
+        var definition = TechniqueFabric.service().registry().findLatest(technique).orElseThrow();
+        var slot = definition.getSlotsList().stream()
+                .filter(candidate -> candidate.getTagsList().contains(LEG_TAG)).findFirst().orElseThrow();
+        context.assertTrue(slot.getMinimumCount() == WORKING_LEG_COUNT && !slot.hasMinimumStrength(),
+                "完整装配载入了旧腿槽目录：" + technique);
         var fixture = PlayerAssemblyGameTest.prepared(context);
         Vec3d position = Vec3d.ofBottomCenter(context.getAbsolutePos(new BlockPos(1, PLAYER_HEIGHT, 1)));
         fixture.player.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
@@ -157,7 +194,7 @@ public final class LegTechniqueGameTest implements FabricGameTest {
                 .filter(tissue -> tissue.tags().stream().anyMatch(tag -> tag.value().equals(LEG_TAG))).toList();
     }
 
-    private static void exhaust(TestContext context, BasicTestPlayer fixture) {
+    static void exhaust(TestContext context, BasicTestPlayer fixture) {
         // 用低于爆发功率的真实做功制造重度疲劳，不直接改写快照字段。
         var host = fixture.body();
         long millis = now(fixture);

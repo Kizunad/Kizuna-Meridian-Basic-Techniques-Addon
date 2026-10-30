@@ -11,8 +11,12 @@ import dev.kizuna.meridian.protocol.pb.MeridianMessages.BodyCommand;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.RequestEnvelope;
 import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastRequest;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.SoundAnchor;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.SoundCue;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueEffect;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
+import dev.kizuna.meridian.technique.server.TechniqueSoundCues;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.fabric.VanillaDamageFabric;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -28,6 +32,7 @@ import net.minecraft.item.Items;
 import net.minecraft.network.packet.s2c.play.EntityDamageS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundCategory;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.Hand;
@@ -38,9 +43,11 @@ import net.minecraft.world.GameMode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-/** 用正式调度、伤害宿主与聊天观察验证逐击命中，不手动重置原版无敌帧。 */
+/** 用正式调度、伤害宿主、聊天与声音包观察验证逐击命中，不手动重置原版无敌帧。 */
 public final class KnockMultihitGameTest implements FabricGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
     private static final String ARM = "left_upper_arm";
@@ -58,33 +65,44 @@ public final class KnockMultihitGameTest implements FabricGameTest {
     private static final double TOTAL_MULTIPLIER = 1.5;
     private static final double RAW_TOTAL = IRON_AXE_DAMAGE * TOTAL_MULTIPLIER;
     private static final double EPSILON = 0.0001;
+    private static final long MILLIS_PER_TICK = 50;
+    /** 声音与命中一样允许一 tick 调度差。 */
+    private static final long TICK_TOLERANCE = 1;
+    /** 声音包坐标是 1/8 格定点数，三轴截断误差合计不超过 0.25 格。 */
+    private static final double SOUND_POSITION_TOLERANCE = 0.25;
+    /** 声音包按 16 格范围下发，同批并行的测试相距只有几格，会互相听到；逐条数声音的测试各占一个批次。 */
+    private static final String MAIN_HAND_BATCH = "knock-sound-main-hand";
+    private static final String OFF_HAND_BATCH = "knock-sound-off-hand";
+    private static final String LEAVE_BATCH = "knock-sound-leave";
+    private static final String SPILLOVER_BATCH = "knock-sound-spillover";
+    private static final String MOB_BATCH = "knock-sound-mob";
     private static boolean observerInstalled;
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, batchId = MAIN_HAND_BATCH)
     public void playerMainHandHitsThreeTimesAndLogsEachHit(TestContext context) {
         // 主手完整结算，并核对玩家实际收到的三条调试日志。
         run(context, Mode.MAIN_HAND);
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, batchId = OFF_HAND_BATCH)
     public void playerOffhandHitsThreeTimes(TestContext context) {
         // 副手走相同节奏与钝击冷却标签，不能漏掉中间一击。
         run(context, Mode.OFF_HAND);
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, batchId = LEAVE_BATCH)
     public void leavingAfterFirstHitMakesLaterHitsMiss(TestContext context) {
         // 目标在第一下后离开范围，后两击按当时世界位置重新选目标。
         run(context, Mode.LEAVE);
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, batchId = SPILLOVER_BATCH)
     public void everyKnockSpillsFromAnAlreadyDestroyedArm(TestContext context) {
         // 黑臂的三段伤害各走一次正式蔓延事务，日志保留三份蔓延明细。
         run(context, Mode.SPILLOVER);
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, batchId = MOB_BATCH)
     public void vindicatorUsesTheSameThreeAuthoritativeHits(TestContext context) {
         // 管理命令生成真炁卫道士，施放继续使用与玩家相同的正式目录。
         run(context, Mode.MOB);
@@ -158,6 +176,10 @@ public final class KnockMultihitGameTest implements FabricGameTest {
         }
         Vec3d position = trial.target().getPos().add(0, 0, -TARGET_DISTANCE);
         actor.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
+        if (mode == Mode.MOB) {
+            // 旁观玩家与出手者同处，才能收到按距离下发的声音包。
+            fixture.player.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
+        }
         Hand hand = Hand.MAIN_HAND;
         if (mode == Mode.OFF_HAND) {
             hand = Hand.OFF_HAND;
@@ -172,6 +194,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
             destroyArm(context, trial.target());
         }
         fixture.connection.packets.clear();
+        fixture.connection.sounds.clear();
     }
 
     private static void start(TestContext context, Trial trial) {
@@ -224,6 +247,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
                     "三击原始总剂量不是 1.5 倍");
         }
         verifyLogsAndWear(context, trial, expected);
+        verifySounds(context, trial, started);
     }
 
     private static void verifyLogsAndWear(TestContext context, Trial trial, int expected) {
@@ -251,6 +275,56 @@ public final class KnockMultihitGameTest implements FabricGameTest {
             hand = Hand.OFF_HAND;
         }
         context.assertTrue(actor.getStackInHand(hand).getDamage() == 1, "末击未只扣一次铁斧耐久");
+    }
+
+    private static void verifySounds(TestContext context, Trial trial, long started) {
+        // 施放者声音每击照响；目标声音只随真正造成伤害的一击在目标位置响，离开范围后的挥空不响。
+        var cues = knockCues();
+        // 目录里没有声音时期望与实际都为空，会空过；先确认装配进来的是带声音的目录。
+        context.assertTrue(!cues.isEmpty(), "叩门目录没有声音，装配的可能是旧 JAR");
+        Set<String> catalogIds = cues.stream().map(timed -> timed.cue().getSoundId()).collect(Collectors.toSet());
+        var heard = trial.fixture().connection.sounds.stream()
+                .filter(sound -> sound.tick() >= started && catalogIds.contains(sound.soundId()))
+                .toList();
+        var report = heard.stream().map(sound -> (sound.tick() - started) + ":" + sound.soundId()).toList();
+        var expected = expectedSounds(trial, cues, started);
+        context.assertTrue(heard.size() == expected.size(), "功法声音条数错误：" + report);
+        for (ExpectedSound sound : expected) {
+            long matches = heard.stream().filter(sound::matches).count();
+            context.assertTrue(matches == 1, "没有按目录听到声音：" + sound + " 实际：" + report);
+        }
+    }
+
+    private static List<TimedCue> knockCues() {
+        // 期望值取自正式注册表里的目录定义，测试不另抄一份音量与音调。
+        var definition = TechniqueFabric.service().registry().findLatest(PREFIX + "knock").orElseThrow();
+        var cues = new ArrayList<TimedCue>();
+        for (TechniqueEffect effect : definition.getEffectsList()) {
+            if (effect.hasSound()) {
+                cues.add(new TimedCue(effect.getAtMillis() / MILLIS_PER_TICK, effect.getSound()));
+            }
+        }
+        return cues;
+    }
+
+    private static List<ExpectedSound> expectedSounds(Trial trial, List<TimedCue> cues, long started) {
+        // 施放者声音对准出手者；目标声音逐一对应实际命中记录，没有命中的一击就不该出声。
+        var expected = new ArrayList<ExpectedSound>();
+        Vec3d caster = trial.actor().getPos();
+        for (TimedCue timed : cues) {
+            SoundCue cue = timed.cue();
+            long tick = started + timed.ticks();
+            if (cue.getAnchor() == SoundAnchor.CASTER) {
+                expected.add(ExpectedSound.of(tick, cue, caster));
+            } else {
+                for (Hit hit : trial.target().hits) {
+                    if (Math.abs(hit.tick() - tick) <= TICK_TOLERANCE) {
+                        expected.add(ExpectedSound.of(hit.tick(), cue, hit.position()));
+                    }
+                }
+            }
+        }
+        return expected;
     }
 
     private static BodySnapshot inspect(LivingEntity entity) {
@@ -330,7 +404,28 @@ public final class KnockMultihitGameTest implements FabricGameTest {
     }
 
     private enum Mode { MAIN_HAND, OFF_HAND, LEAVE, SPILLOVER, MOB }
-    private record Hit(long tick, float dose, int hurtTime) { }
+    private record Hit(long tick, float dose, int hurtTime, Vec3d position) { }
+    private record TimedCue(long ticks, SoundCue cue) { }
+
+    private record ExpectedSound(long tick, String soundId, Vec3d position, double volume, double pitch,
+            double jitter) {
+        static ExpectedSound of(long tick, SoundCue cue, Vec3d position) {
+            // 省略的音量与音调按功法库同一套默认值解析。
+            return new ExpectedSound(tick, cue.getSoundId(), position, TechniqueSoundCues.volume(cue),
+                    TechniqueSoundCues.pitch(cue), TechniqueSoundCues.pitchJitter(cue));
+        }
+
+        boolean matches(BasicTestPlayer.HeardSound heard) {
+            // 时刻容许一 tick 调度差，坐标按定点精度比较，音调落在目录写的抖动区间内。
+            var packet = heard.packet();
+            return heard.soundId().equals(soundId)
+                    && Math.abs(heard.tick() - tick) <= TICK_TOLERANCE
+                    && heard.position().distanceTo(position) <= SOUND_POSITION_TOLERANCE
+                    && packet.getCategory() == SoundCategory.PLAYERS
+                    && Math.abs(packet.getVolume() - volume) < EPSILON
+                    && Math.abs(packet.getPitch() - pitch) <= jitter + EPSILON;
+        }
+    }
 
     private record Trial(BasicTestPlayer fixture, LivingEntity actor, ObservedVillager target, Mode mode)
             implements AutoCloseable {
@@ -357,11 +452,11 @@ public final class KnockMultihitGameTest implements FabricGameTest {
 
         @Override
         public boolean damage(DamageSource source, float amount) {
-            // 只固定命中手臂，记录原版 damage 返回后的闪红状态，不清零受伤冷却。
+            // 只固定命中手臂，记录原版 damage 返回后的闪红状态与位置，不清零受伤冷却。
             getRandom().setSeed(armSeed);
             boolean accepted = super.damage(source, amount);
             if (accepted) {
-                hits.add(new Hit(getWorld().getTime(), amount, hurtTime));
+                hits.add(new Hit(getWorld().getTime(), amount, hurtTime, getPos()));
             }
             return accepted;
         }

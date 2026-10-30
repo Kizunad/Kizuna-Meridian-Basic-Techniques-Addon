@@ -59,8 +59,8 @@ definitions {
   cost {
     qi {
       slot_id: "source"
-      attribute: "meridian:none"
       phase: FREE
+      matching: ANY_ATTRIBUTE_AT_LEAST_PHASE
       amount { value: 10 unit: QI }
       distribution: EVEN
     }
@@ -78,6 +78,15 @@ definitions {
       id: "meridian_basic_techniques:technique_breath"
       duration: UNTIL_RECOVERY_END
       start_millis: 0
+    }
+  }
+  effects {
+    at_millis: 0
+    sound {
+      sound_id: "minecraft:entity.player.breath"
+      volume { value: 0.6 unit: RATIO }
+      pitch { value: 0.8 unit: RATIO }
+      anchor: CASTER
     }
   }
   effects {
@@ -108,17 +117,37 @@ definitions {
       recovery_peak { value: 4 unit: RATIO }
     }
   }
+  effects {
+    at_millis: 1100
+    sound {
+      sound_id: "minecraft:block.amethyst_block.chime"
+      volume { value: 0.5 unit: RATIO }
+      pitch { value: 0.7 unit: RATIO }
+      anchor: CASTER
+    }
+  }
+  ai_hints {
+    minimum_distance { value: 12 unit: METER }
+    maximum_distance { value: 1024 unit: METER }
+    maximum_hp_ratio { value: 1 unit: RATIO }
+    minimum_qi_ratio { value: 0 unit: RATIO }
+    category_weight { value: 1 unit: RATIO }
+    support {
+      role: AI_ROLE_RECOVER
+      minimum_fatigue_ratio { value: 0.3 unit: RATIO }
+    }
+  }
   presentation {
     icon_id: "meridian_basic_techniques:breath"
     display_name: "调息"
-    description: "调匀呼吸，逐渐提高双臂与双腿的恢复能力。适合交战间隙使用，起手和收势期间受伤会中断。"
+    description: "调匀呼吸，逐渐提高双臂与双腿的恢复能力。适合交战间隙使用，起手期间受到足以造成僵直的伤害会中断。"
   }
 }
 
 definitions {
   id: "meridian_basic_techniques:light_step"
   version: 1
-  category: MOVEMENT
+  category: BUFF
   minimum_realm: WANDERING_QI
   slots {
     id: "source"
@@ -132,23 +161,16 @@ definitions {
     id: "legs"
     module: TISSUE
     tags: "human:leg_muscle"
-    minimum_count: 4
-    maximum_count: 4
-    minimum_strength { value: 510 unit: NEWTON }
+    minimum_count: 6
+    maximum_count: 6
   }
   cost {
     qi {
       slot_id: "source"
-      attribute: "meridian:none"
       phase: FREE
+      matching: ANY_ATTRIBUTE_AT_LEAST_PHASE
       amount { value: 15 unit: QI }
       distribution: EVEN
-    }
-    work {
-      slot_id: "legs"
-      force { value: 0 unit: NEWTON }
-      power { value: 200 unit: WATT }
-      duration { value: 0.5 unit: SECOND }
     }
   }
   phases {
@@ -159,25 +181,65 @@ definitions {
   }
   cooldown_millis: 3000
   effects {
-    at_millis: 0
-    presentation {
-      id: "meridian_basic_techniques:technique_dash"
-      duration: UNTIL_RECOVERY_END
-      start_millis: 0
+    at_millis: 280
+    status_benefit {
+      id: "meridian_basic_techniques:light_body"
+      duration_millis: 20000
+      color_rgb: 11977153
+      leap {
+        work {
+          slot_id: "legs"
+          force { value: 0 unit: NEWTON }
+          power { value: 133.33333333333334 unit: WATT }
+          duration { value: 0.5 unit: SECOND }
+        }
+        maximum_rise: 3
+        maximum_drop: 4
+        snap_radius: 2
+        landing_delay_ticks: 6
+        presentation_id: "meridian_basic_techniques:technique_dash"
+        ai_minimum_distance: 4
+        ai_decision_ticks: 6
+        failure_translation_key: "message.meridian_basic_techniques.weak_legs"
+        maximum_path: 7
+        launch_speed: 12
+        minimum_flight_ticks: 6
+        maximum_flight_ticks: 30
+        takeoff_sound {
+          sound_id: "minecraft:entity.rabbit.jump"
+          volume { value: 0.6 unit: RATIO }
+          pitch { value: 0.7 unit: RATIO }
+          pitch_jitter { value: 0.05 unit: RATIO }
+          anchor: CASTER
+        }
+      }
     }
   }
   effects {
     at_millis: 280
-    impulse { direction: INPUT speed { value: 6 unit: METERS_PER_SECOND } input_default_direction: FORWARD }
+    sound {
+      sound_id: "minecraft:block.amethyst_block.chime"
+      volume { value: 0.4 unit: RATIO }
+      pitch { value: 0.9 unit: RATIO }
+      anchor: CASTER
+    }
   }
-  effects {
-    at_millis: 280
-    impulse { direction: UP speed { value: 4 unit: METERS_PER_SECOND } }
+  ai_hints {
+    minimum_distance { value: 4 unit: METER }
+    maximum_distance { value: 24 unit: METER }
+    maximum_hp_ratio { value: 1 unit: RATIO }
+    minimum_qi_ratio { value: 0.1 unit: RATIO }
+    category_weight { value: 1.5 unit: RATIO }
+    support {
+      role: AI_ROLE_REPOSITION
+      order: 2
+      refresh_before_expiry_millis: 3000
+    }
   }
   presentation {
     icon_id: "meridian_basic_techniques:light_step"
     display_name: "轻步"
-    description: "提气跃步，向移动输入方向冲出并轻轻跃起。没有方向输入时向前出步，可用于接近敌人或拉开距离。"
+    description: "施展后一段时间内身轻如燕，可连续向准星处远跃，翻上两三格高处。潜行时仍可普通跳跃，腿脚乏力时需稍作休息。"
   }
 }
 
@@ -204,8 +266,8 @@ definitions {
   cost {
     qi {
       slot_id: "source"
-      attribute: "meridian:none"
       phase: FREE
+      matching: ANY_ATTRIBUTE_AT_LEAST_PHASE
       amount { value: 15 unit: QI }
       distribution: EVEN
     }
@@ -226,6 +288,15 @@ definitions {
     }
   }
   effects {
+    at_millis: 0
+    sound {
+      sound_id: "minecraft:entity.player.breath"
+      volume { value: 0.5 unit: RATIO }
+      pitch { value: 0.6 unit: RATIO }
+      anchor: CASTER
+    }
+  }
+  effects {
     at_millis: 1600
     tissue_modifier {
       slot_id: "arms"
@@ -240,6 +311,27 @@ definitions {
       burst_peak { value: 1.3 unit: RATIO }
       endurance_peak { value: 1 unit: RATIO }
       recovery_peak { value: 1 unit: RATIO }
+    }
+  }
+  effects {
+    at_millis: 1600
+    sound {
+      sound_id: "minecraft:entity.experience_orb.pickup"
+      volume { value: 0.3 unit: RATIO }
+      pitch { value: 0.5 unit: RATIO }
+      anchor: CASTER
+    }
+  }
+  ai_hints {
+    minimum_distance { value: 4 unit: METER }
+    maximum_distance { value: 24 unit: METER }
+    maximum_hp_ratio { value: 1 unit: RATIO }
+    minimum_qi_ratio { value: 0.2 unit: RATIO }
+    category_weight { value: 1 unit: RATIO }
+    support {
+      role: AI_ROLE_PREPARE
+      order: 1
+      requires_melee_weapon: true
     }
   }
   presentation {

@@ -8,5 +8,7 @@
   "item.meridian_basic_techniques.charge_volume_scroll": "Basic Techniques·Charge",
   "technique.meridian_basic_techniques.breath": "Breathing",
   "technique.meridian_basic_techniques.light_step": "Light Step",
-  "technique.meridian_basic_techniques.charge": "Charge"
+  "technique.meridian_basic_techniques.charge": "Charge",
+  "effect.meridian_basic_techniques.light_body": "Light Body",
+  "message.meridian_basic_techniques.weak_legs": "Your legs are too weak"
 }

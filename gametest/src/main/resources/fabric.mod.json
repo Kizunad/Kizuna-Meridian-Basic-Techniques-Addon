@@ -11,7 +11,9 @@
       "dev.kizuna.meridian.human.fabric.PlayerCombatAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.KnockMultihitGameTest",
       "dev.kizuna.meridian.human.fabric.LegTechniqueGameTest",
-      "dev.kizuna.meridian.humanoid.fabric.VindicatorAssemblyGameTest"
+      "dev.kizuna.meridian.human.fabric.LightBodyGameTest",
+      "dev.kizuna.meridian.humanoid.fabric.VindicatorAssemblyGameTest",
+      "dev.kizuna.meridian.humanoid.fabric.HumanoidBrainPlayerGameTest"
     ]
   },
   "depends": {"fabric-api": "*", "meridian_technique": "*", "meridian_human_host": "*"}

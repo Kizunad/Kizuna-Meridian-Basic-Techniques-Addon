@@ -6,6 +6,7 @@ import dev.kizuna.meridian.protocol.pb.MeridianMessages.DebugQi;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.DebugQiMode;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.FailureCode;
 import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
+import dev.kizuna.meridian.technique.fabric.world.TechniqueLeaps;
 import dev.kizuna.meridian.technique.fabric.TechniqueScrollItems;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
@@ -41,7 +42,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
     private static final int DECLINE_TICKS = 107;
     private static final int COLLAPSE_TICKS = 160;
     private static final int EXPIRE_TICKS = 237;
-    private static final int STEP_TICKS = 7;
+    private static final int STEP_TICKS = 12;
     private static final int STEP_HEIGHT = 4;
     private static final int STEP_LANE_SPACING = 2;
     private static final double PEAK_STRENGTH = 1.3;
@@ -104,8 +105,8 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
     }
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void combatProtocolLightStepMovesAlongInputAndEntityFacing(TestContext context) {
-        // 检查方向与发给本人的速度，再用客户端移动回报验证服务器接受该位移。
+    public void combatProtocolLightStepGrantsStatusThenJumpChoosesFacing(TestContext context) {
+        // 战斗 UI 施放先给予状态，后续跳跃请求才使用当前视线求初速度。
         var right = prepared(context);
         var forward = prepared(context);
         var players = List.of(right, forward);
@@ -121,15 +122,18 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
         });
         later(context, STEP_TICKS, players, () -> {
             try (right; forward) {
-                context.assertTrue(right.player.getVelocity().x > 0, "轻步未沿输入方向");
-                context.assertTrue(forward.player.getVelocity().z > 0, "零输入未沿实体朝向");
-                Vec3d rightVelocity = right.receiveVelocityAndMove();
-                Vec3d forwardVelocity = forward.receiveVelocityAndMove();
-                context.assertTrue(rightVelocity.x > 0 && rightVelocity.y > 0, "本人速度包丢失水平或竖直分量");
-                context.assertTrue(forwardVelocity.z > 0, "本人速度包未保留朝向回退");
-                context.assertTrue(right.player.getX() > rightStart.x, "输入方向未产生实际位移");
-                context.assertTrue(forward.player.getZ() > forwardStart.z, "实体朝向未产生实际位移");
-                context.assertTrue(right.player.getY() > rightStart.y, "轻步缺少向上位移");
+                right.player.setYaw(-90);
+                right.player.setOnGround(true /* onGround */);
+                forward.player.setOnGround(true /* onGround */);
+                var rightResult = TechniqueLeaps.jump(right.player);
+                var forwardResult = TechniqueLeaps.jump(forward.player);
+                context.assertTrue(rightResult == TechniqueLeaps.Jump.LEAP,
+                        "轻步状态没有接通跳跃");
+                context.assertTrue(forwardResult == rightResult, "无输入施放未得到相同能力");
+                context.assertTrue(right.player.getVelocity().horizontalLengthSquared() > 0
+                        && right.player.getVelocity().y > 0, "跃步没有水平和向上的初速度");
+                context.assertTrue(forward.player.getVelocity().horizontalLengthSquared() > 0,
+                        "零输入施放没有跃步能力");
                 context.complete();
             }
         });

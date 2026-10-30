@@ -1,5 +1,6 @@
 package dev.kizuna.meridian.human.fabric;
 
+import dev.kizuna.meridian.core.Qi;
 import dev.kizuna.meridian.protocol.BodyProtobuf;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.BodyCommand;
 import dev.kizuna.meridian.protocol.pb.MeridianMessages.DebugQi;
@@ -20,12 +21,15 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.CowEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 import net.minecraft.test.GameTest;
 import net.minecraft.test.TestContext;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** 正式 Human 玩家、功法服务和 Damage Mixin 的联合验证。 */
@@ -55,6 +59,11 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
     private static final double VERTICAL_SPEED = VERTICAL_METERS_PER_SECOND / TICKS_PER_SECOND;
     private static final double FATIGUE_POWER = 100;
     private static final double FATIGUE_SECONDS = 2;
+    private static final double GAS_DENSITY = 0.2;
+    private static final double GAS_FILL_RATIO = 0.5;
+    private static final double QI_EPSILON = 0.000001;
+    private static final double BREATH_QI_COST = 10;
+    private static final double BUFF_QI_COST = 15;
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
     public void discoversCatalogAndLearnsEachIndependentVolume(TestContext context) {
@@ -73,6 +82,34 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                         "完整已学列表缺少本卷功法：" + path);
             }
             context.assertTrue(service.known(fixture.player.getUuid()).size() == TECHNIQUE_COUNT, "三式未写入身体");
+        }
+        context.complete();
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void allTechniquesStartAndPayWithOnlyTrueQi(TestContext context) {
+        // 内腔只留真炁，三式均须经正式玩家宿主起手，并只扣声明的整式费用。
+        var costs = Map.of("breath", BREATH_QI_COST, "light_step", BUFF_QI_COST, "charge", BUFF_QI_COST);
+        for (var entry : costs.entrySet()) {
+            String path = entry.getKey();
+            double expectedCost = entry.getValue();
+            try (var fixture = prepared(context)) {
+                fillTrueQi(context, fixture);
+                TechniqueFabric.service().learn(fixture.player.getUuid(), PREFIX + path + "_volume");
+                // 全身总量包含扩散在途，内腔转运不能误计为功法费用。
+                double before = fixture.body().snapshot().totalQi();
+                context.assertTrue(before > expectedCost, "真炁夹具余额不足");
+                start(context, fixture, path, Vec3d.ZERO);
+                var after = fixture.body().snapshot();
+                double spent = before - after.totalQi();
+                context.assertTrue(Math.abs(spent - expectedCost) < QI_EPSILON,
+                        "整式真元扣费不符：" + path + "，实际 " + spent);
+                context.assertTrue(after.meridianStates().stream()
+                                .flatMap(state -> state.lumenQi().entries().stream())
+                                .allMatch(qi -> qi.phase() == Qi.QiPhase.GAS
+                                        && Math.abs(qi.density() - GAS_DENSITY) < QI_EPSILON),
+                        "扣费改变了剩余真炁的相态或密度");
+            }
         }
         context.complete();
     }
@@ -107,8 +144,8 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
     }
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void lightStepUsesInputAndZeroInputFacesForward(TestContext context) {
-        // 同一正式冲量宿主分别验证世界水平输入与零输入的实体朝向回退。
+    public void lightStepGrantsQuietStatusInsteadOfImmediateImpulse(TestContext context) {
+        // 施放输入不再直接推人；两种请求都在起手结束得到相同的轻身状态。
         var right = prepared(context);
         var forward = prepared(context);
         forward.player.setYaw(0);
@@ -118,13 +155,14 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         start(context, forward, "light_step", Vec3d.ZERO);
         later(context, STEP_TICKS, List.of(right, forward), () -> {
             try (right; forward) {
-                context.assertTrue(right.player.getVelocity().x > 0, "轻步未沿输入方向");
-                context.assertTrue(forward.player.getVelocity().z > 0, "零输入未沿实体朝向");
-                context.assertTrue(right.player.getVelocity().y > 0, "轻步缺少向上冲量");
-                context.assertTrue(right.player.getVelocity().x <= HORIZONTAL_SPEED + EPSILON,
-                        "水平冲量单位错误");
-                context.assertTrue(right.player.getVelocity().y <= VERTICAL_SPEED + EPSILON,
-                        "向上冲量单位错误");
+                var effect = Registries.STATUS_EFFECT.get(new Identifier(PREFIX + "light_body"));
+                for (var fixture : List.of(right, forward)) {
+                    var status = fixture.player.getStatusEffect(effect);
+                    context.assertTrue(status != null && !status.shouldShowParticles() && status.isAmbient(),
+                            "轻身缺失或显示了粒子");
+                    context.assertTrue(status.shouldShowIcon(), "轻身图标被隐藏");
+                    context.assertTrue(fixture.player.getVelocity().lengthSquared() == 0, "施放仍产生冲量");
+                }
                 context.complete();
             }
         });
@@ -167,6 +205,20 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
             fixture.close();
             throw failure;
         }
+    }
+
+    private static void fillTrueQi(TestContext context, BasicTestPlayer fixture) {
+        // 管理员精确库存入口替换全部内腔，保证没有游离态余额可替三式支付。
+        var body = fixture.body();
+        double volume = body.snapshot().structure().meridians().stream()
+                .mapToDouble(meridian -> meridian.lumenVolume()).sum();
+        var fill = DebugQi.newBuilder()
+                .setMode(DebugQiMode.SET_INVENTORY)
+                .setAmount(volume * GAS_FILL_RATIO * GAS_DENSITY)
+                .setDensity(GAS_DENSITY)
+                .build();
+        context.assertTrue(body.debugQi(now(fixture), fill) == FailureCode.FAILURE_CODE_UNSPECIFIED,
+                "填充真炁失败");
     }
 
     private static void start(TestContext context, BasicTestPlayer fixture, String path, Vec3d input) {

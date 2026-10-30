@@ -8,5 +8,7 @@
   "item.meridian_basic_techniques.charge_volume_scroll": "基础功法·蓄力卷",
   "technique.meridian_basic_techniques.breath": "调息",
   "technique.meridian_basic_techniques.light_step": "轻步",
-  "technique.meridian_basic_techniques.charge": "蓄力"
+  "technique.meridian_basic_techniques.charge": "蓄力",
+  "effect.meridian_basic_techniques.light_body": "轻身",
+  "message.meridian_basic_techniques.weak_legs": "腿脚乏力"
 }

@@ -3,6 +3,12 @@ package dev.kizuna.meridian.human.fabric;
 import dev.kizuna.meridian.combat.protocol.pb.CombatMessages.TechniquePress;
 import dev.kizuna.meridian.protocol.BodyProtobuf;
 import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
+import dev.kizuna.meridian.technique.fabric.world.TechniqueSounds;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastPhase;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.SoundAnchor;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.SoundCue;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueEffect;
+import dev.kizuna.meridian.technique.server.TechniqueService;
 import dev.kizuna.meridian.technique.server.TechniqueState;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
@@ -24,6 +30,10 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /** 正式卷轴经战斗协议施放，验证整套装配中的世界效果和 Damage 接线。 */
 public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
@@ -40,6 +50,17 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     private static final double MULTIHIT_FATIGUE_RATIO = 0.05;
     private static final double EPSILON = 0.001;
     private static final long MILLIS_PER_TICK = 50;
+    /** 破门起手 3200 毫秒，第 30 tick 时 850 毫秒的踏步声已响、劈砍声未到。 */
+    private static final int STAGGER_TICKS = 30;
+    /** 打断后再等 70 tick，越过原定 4500 毫秒的收势声。 */
+    private static final int SILENCE_TICKS = 70;
+    private static final int SOUND_TEST_TICKS = 120;
+    /** 同批并行的测试相距只有几格，会听到彼此的功法声音；数声音的测试单独一个批次。 */
+    private static final String SOUND_BATCH = "cleave-stagger-sound";
+    private static final long STAGGER_MILLIS = 500;
+    private static final double FULL_SPEED = 1;
+    /** 不在服务端注册表里的声音事件，模拟纯数据功法书在自己客户端资源里声明的声音。 */
+    private static final String INLINE_SOUND = "meridian_basic_techniques:test.inline_hum";
 
     @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
     public void combatProtocolCleaveBreaksWoodenDoorAndWearsIronAxe(TestContext context) {
@@ -97,6 +118,85 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
                 target.discard();
             }
         });
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = SOUND_TEST_TICKS, batchId = SOUND_BATCH)
+    public void staggerInCleaveWarmupSilencesTheRemainingSounds(TestContext context) {
+        // 起手与踏步声照常响；起手中被僵直打断后，劈砍、命中与收势声都不再下发。
+        var fixture = prepared(context);
+        var cues = soundEffects("cleave");
+        Set<String> catalogIds = cues.stream()
+                .map(effect -> effect.getSound().getSoundId())
+                .collect(Collectors.toSet());
+        fixture.connection.sounds.clear();
+        press(fixture, "cleave");
+        assertAcceptedLater(context, fixture, "cleave");
+        context.waitAndRun(STAGGER_TICKS, () -> {
+            long staggered = context.getWorld().getTime();
+            try {
+                interrupt(context, fixture, cues, catalogIds);
+            } catch (RuntimeException | Error failure) {
+                fixture.close();
+                throw failure;
+            }
+            context.waitAndRun(SILENCE_TICKS, () -> {
+                try (fixture) {
+                    var late = heard(fixture, catalogIds).stream()
+                            .filter(sound -> sound.tick() > staggered)
+                            .map(BasicTestPlayer.HeardSound::soundId)
+                            .toList();
+                    context.assertTrue(late.isEmpty(), "打断后仍有功法声音：" + late);
+                    context.complete();
+                }
+            });
+        });
+    }
+
+    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
+    public void soundOutsideTheRegistryIsSentInlineWithItsId(TestContext context) {
+        // 未注册的声音照常下发：不按注册表编号，而是随包带上原 ID，客户端有该资源就能播放。
+        try (var fixture = new BasicTestPlayer(context)) {
+            var cue = SoundCue.newBuilder()
+                    .setSoundId(INLINE_SOUND)
+                    .setAnchor(SoundAnchor.CASTER)
+                    .build();
+            fixture.connection.sounds.clear();
+            TechniqueSounds.play(fixture.player, cue);
+            var heard = fixture.connection.sounds.stream().map(BasicTestPlayer.HeardSound::soundId).toList();
+            context.assertTrue(heard.equals(List.of(INLINE_SOUND)), "未注册声音没有按原 ID 下发：" + heard);
+            var sound = fixture.connection.sounds.get(0).packet().getSound();
+            context.assertTrue(sound.getKey().isEmpty(), "未注册声音不应按注册表编号下发");
+        }
+        context.complete();
+    }
+
+    private static void interrupt(TestContext context, BasicTestPlayer fixture, List<TechniqueEffect> cues,
+            Set<String> catalogIds) {
+        // 打断前应已听到起手阶段的全部声音；伤害附属用的僵直入口随后打断可打断的起手。
+        long elapsedMillis = (STAGGER_TICKS - CAST_ACCEPT_TICKS) * MILLIS_PER_TICK;
+        long due = cues.stream().filter(effect -> effect.getAtMillis() < elapsedMillis).count();
+        // 打断前后都要有目录声音，否则「打断后静音」会空过。
+        context.assertTrue(due > 0 && due < cues.size(),
+                "破门声音没有跨过打断时刻：起手 " + due + "/" + cues.size());
+        var early = heard(fixture, catalogIds).stream().map(BasicTestPlayer.HeardSound::soundId).toList();
+        context.assertTrue(early.size() == due, "起手阶段声音条数错误：" + early);
+        var stagger = new TechniqueService.Stagger(STAGGER_MILLIS, FULL_SPEED);
+        var outcome = TechniqueFabric.service().stagger(fixture.player.getUuid(), stagger);
+        context.assertTrue(outcome.isPresent() && outcome.get().getPhase() == CastPhase.INTERRUPTED,
+                "僵直没有打断破门起手：" + outcome);
+    }
+
+    private static List<TechniqueEffect> soundEffects(String path) {
+        // 期望声音取自正式注册表里的目录定义，测试不另抄一份。
+        var definition = TechniqueFabric.service().registry().findLatest(PREFIX + path).orElseThrow();
+        return definition.getEffectsList().stream().filter(TechniqueEffect::hasSound).toList();
+    }
+
+    private static List<BasicTestPlayer.HeardSound> heard(BasicTestPlayer fixture, Set<String> catalogIds) {
+        // 只看目录里出现过的声音 ID，原版受击、脚步等声音不计入。
+        return fixture.connection.sounds.stream()
+                .filter(sound -> catalogIds.contains(sound.soundId()))
+                .toList();
     }
 
     private static BasicTestPlayer prepared(TestContext context) {

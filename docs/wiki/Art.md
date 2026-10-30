@@ -33,6 +33,13 @@ sunburst 的正文区灰度标准差略低（1.52 对 1.64）；选择依据是�
 
 ## 后处理
 
+轻身状态图标为 [18×18 RGBA PNG](../../fabric/src/main/resources/assets/meridian_basic_techniques/textures/mob_effect/light_body.png)。
+由 CPA `gpt-image-2.5-flare` 图片接口生成像素羽毛与风纹，沿用米白、古金、炭褐配色；
+最近邻缩小、24 色量化并移除暗底，保留原版效果图标的透明背景，无粒子资源。
+原稿与完整提示词分别位于交接目录
+`light-step-leap-work/art/light_body_pixel.png`、`light-step-leap-work/light-body-pixel-prompt.txt`。
+客户端实拍同时核验 HUD 图标及地面落点框。
+
 - 阅读背景保留 1536×1024 RGB；主题细节集中在外缘，中央浅纸供运行时正文使用，提示词禁止文字。
 - 方形生成请求为 1024×1024，CPA 实际返回 1254×1254 RGB；记录实际尺寸后再处理。
 - 卷轴按 R、B≥130、G≤140 且 R−G、B−G≥60 去品红底，裁去透明边，以最近邻缩至 30×30 以内；

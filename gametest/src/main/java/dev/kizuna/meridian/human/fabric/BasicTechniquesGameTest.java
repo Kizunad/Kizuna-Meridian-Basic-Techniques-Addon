@@ -17,17 +17,16 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueRefe
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.passive.CowEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.test.GameTest;
-import net.minecraft.test.TestContext;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -65,8 +64,8 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
     private static final double BREATH_QI_COST = 10;
     private static final double BUFF_QI_COST = 15;
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void discoversCatalogAndLearnsEachIndependentVolume(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void discoversCatalogAndLearnsEachIndependentVolume(GameTestHelper context) {
         // 清单发现使用 Fabric 加载器，学习提交使用正式在线玩家宿主。
         try (var fixture = prepared(context)) {
             var service = TechniqueFabric.service();
@@ -75,19 +74,19 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                     "没有通过真实清单发现目录");
             int learnedCount = 0;
             for (String path : new String[]{"charge", "breath", "light_step"}) {
-                var learned = service.learn(fixture.player.getUuid(), PREFIX + path + "_volume");
+                var learned = service.learn(fixture.player.getUUID(), PREFIX + path + "_volume");
                 learnedCount++;
                 context.assertTrue(learned.size() == learnedCount, "独立卷没有新增一式：" + path);
                 context.assertTrue(learned.stream().anyMatch(item -> item.technique().getId().equals(PREFIX + path)),
                         "完整已学列表缺少本卷功法：" + path);
             }
-            context.assertTrue(service.known(fixture.player.getUuid()).size() == TECHNIQUE_COUNT, "三式未写入身体");
+            context.assertTrue(service.known(fixture.player.getUUID()).size() == TECHNIQUE_COUNT, "三式未写入身体");
         }
-        context.complete();
+        context.succeed();
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void allTechniquesStartAndPayWithOnlyTrueQi(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void allTechniquesStartAndPayWithOnlyTrueQi(GameTestHelper context) {
         // 内腔只留真炁，三式均须经正式玩家宿主起手，并只扣声明的整式费用。
         var costs = Map.of("breath", BREATH_QI_COST, "light_step", BUFF_QI_COST, "charge", BUFF_QI_COST);
         for (var entry : costs.entrySet()) {
@@ -95,11 +94,11 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
             double expectedCost = entry.getValue();
             try (var fixture = prepared(context)) {
                 fillTrueQi(context, fixture);
-                TechniqueFabric.service().learn(fixture.player.getUuid(), PREFIX + path + "_volume");
+                TechniqueFabric.service().learn(fixture.player.getUUID(), PREFIX + path + "_volume");
                 // 全身总量包含扩散在途，内腔转运不能误计为功法费用。
                 double before = fixture.body().snapshot().totalQi();
                 context.assertTrue(before > expectedCost, "真炁夹具余额不足");
-                start(context, fixture, path, Vec3d.ZERO);
+                start(context, fixture, path, Vec3.ZERO);
                 var after = fixture.body().snapshot();
                 double spent = before - after.totalQi();
                 context.assertTrue(Math.abs(spent - expectedCost) < QI_EPSILON,
@@ -111,25 +110,25 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                         "扣费改变了剩余真炁的相态或密度");
             }
         }
-        context.complete();
+        context.succeed();
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = CHARGE_TEST_TICKS)
-    public void chargeCurveChangesHumanStrengthAndSameSwordDamage(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = CHARGE_TEST_TICKS)
+    public void chargeCurveChangesHumanStrengthAndSameSwordDamage(GameTestHelper context) {
         // 两个玩家同步持同一型号剑，消除相同做功疲劳对曲线倍率的干扰。
         var boosted = prepared(context);
         var control = prepared(context);
-        boosted.player.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
-        control.player.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+        boosted.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+        control.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
         var pair = new ChargePair(boosted, control);
-        TechniqueFabric.service().learn(boosted.player.getUuid(), PREFIX + "charge_volume");
+        TechniqueFabric.service().learn(boosted.player.getUUID(), PREFIX + "charge_volume");
         later(context, PREPARE_TICKS, pair.players(), () -> {
-            start(context, boosted, "charge", Vec3d.ZERO);
+            start(context, boosted, "charge", Vec3.ZERO);
             sampleCharge(context, pair);
         });
     }
 
-    private static void sampleCharge(TestContext context, ChargePair pair) {
+    private static void sampleCharge(GameTestHelper context, ChargePair pair) {
         // 取峰值、线性回落与虚脱平台，最后检查曲线到期后的自然恢复。
         later(context, PEAK_TICKS, pair.players(), () -> assertCharge(context, pair, BOOST));
         later(context, DECLINE_TICKS, pair.players(), () -> assertCharge(context, pair, DECLINE));
@@ -138,43 +137,43 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
             try (var boosted = pair.boosted(); var control = pair.control()) {
                 assertCharge(context, pair, 1);
                 context.assertTrue(boosted.body().snapshot().modifiers().isEmpty(), "到期修正没有清理");
-                context.complete();
+                context.succeed();
             }
         });
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void lightStepGrantsQuietStatusInsteadOfImmediateImpulse(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void lightStepGrantsQuietStatusInsteadOfImmediateImpulse(GameTestHelper context) {
         // 施放输入不再直接推人；两种请求都在起手结束得到相同的轻身状态。
         var right = prepared(context);
         var forward = prepared(context);
-        forward.player.setYaw(0);
-        TechniqueFabric.service().learn(right.player.getUuid(), PREFIX + "light_step_volume");
-        TechniqueFabric.service().learn(forward.player.getUuid(), PREFIX + "light_step_volume");
-        start(context, right, "light_step", new Vec3d(1, 0, 0));
-        start(context, forward, "light_step", Vec3d.ZERO);
+        forward.player.setYRot(0);
+        TechniqueFabric.service().learn(right.player.getUUID(), PREFIX + "light_step_volume");
+        TechniqueFabric.service().learn(forward.player.getUUID(), PREFIX + "light_step_volume");
+        start(context, right, "light_step", new Vec3(1, 0, 0));
+        start(context, forward, "light_step", Vec3.ZERO);
         later(context, STEP_TICKS, List.of(right, forward), () -> {
             try (right; forward) {
-                var effect = Registries.STATUS_EFFECT.get(new Identifier(PREFIX + "light_body"));
+                var effect = BuiltInRegistries.MOB_EFFECT.get(new ResourceLocation(PREFIX + "light_body"));
                 for (var fixture : List.of(right, forward)) {
-                    var status = fixture.player.getStatusEffect(effect);
-                    context.assertTrue(status != null && !status.shouldShowParticles() && status.isAmbient(),
+                    var status = fixture.player.getEffect(effect);
+                    context.assertTrue(status != null && !status.isVisible() && status.isAmbient(),
                             "轻身缺失或显示了粒子");
-                    context.assertTrue(status.shouldShowIcon(), "轻身图标被隐藏");
-                    context.assertTrue(fixture.player.getVelocity().lengthSquared() == 0, "施放仍产生冲量");
+                    context.assertTrue(status.showIcon(), "轻身图标被隐藏");
+                    context.assertTrue(fixture.player.getDeltaMovement().lengthSqr() == 0, "施放仍产生冲量");
                 }
-                context.complete();
+                context.succeed();
             }
         });
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = BREATH_TEST_TICKS)
-    public void breathAcceleratesIdleArmFatigueRecovery(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = BREATH_TEST_TICKS)
+    public void breathAcceleratesIdleArmFatigueRecovery(GameTestHelper context) {
         // 两具正式身体施加相同做功，只有一具接受调息，比较权威组织疲劳差值。
         var boosted = prepared(context);
         var control = prepared(context);
-        TechniqueFabric.service().learn(boosted.player.getUuid(), PREFIX + "breath_volume");
-        start(context, boosted, "breath", Vec3d.ZERO);
+        TechniqueFabric.service().learn(boosted.player.getUUID(), PREFIX + "breath_volume");
+        start(context, boosted, "breath", Vec3.ZERO);
         later(context, BREATH_TICKS, List.of(boosted, control), () -> {
             exertArm(context, boosted);
             exertArm(context, control);
@@ -183,13 +182,13 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                     boosted.body().settle(now(boosted));
                     control.body().settle(now(control));
                     context.assertTrue(armFatigue(boosted) < armFatigue(control), "调息未加速手臂疲劳恢复");
-                    context.complete();
+                    context.succeed();
                 }
             });
         });
     }
 
-    private static BasicTestPlayer prepared(TestContext context) {
+    private static BasicTestPlayer prepared(GameTestHelper context) {
         // 管理开拓和补元只初始化测试，学习、施放、效果和伤害均走正式生产入口。
         var fixture = new BasicTestPlayer(context);
         try {
@@ -207,7 +206,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         }
     }
 
-    private static void fillTrueQi(TestContext context, BasicTestPlayer fixture) {
+    private static void fillTrueQi(GameTestHelper context, BasicTestPlayer fixture) {
         // 管理员精确库存入口替换全部内腔，保证没有游离态余额可替三式支付。
         var body = fixture.body();
         double volume = body.snapshot().structure().meridians().stream()
@@ -221,7 +220,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                 "填充真炁失败");
     }
 
-    private static void start(TestContext context, BasicTestPlayer fixture, String path, Vec3d input) {
+    private static void start(GameTestHelper context, BasicTestPlayer fixture, String path, Vec3 input) {
         // 请求只传精确功法引用和方向，不覆盖身体、费用或实体朝向。
         var reference = TechniqueReference.newBuilder()
                 .setId(PREFIX + path)
@@ -232,17 +231,17 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                 .setZ(input.z)
                 .build();
         var request = CastRequest.newBuilder()
-                .setBodyId(fixture.player.getUuidAsString())
+                .setBodyId(fixture.player.getStringUUID())
                 .setTechnique(reference)
                 .setCastId(UUID.randomUUID().toString())
                 .setDirection(direction)
                 .build();
-        var outcome = TechniqueFabric.service().cast(fixture.player.getUuid(), request);
+        var outcome = TechniqueFabric.service().cast(fixture.player.getUUID(), request);
         context.assertTrue(outcome.getFailure() == TechniqueFailure.TECHNIQUE_FAILURE_UNSPECIFIED,
                 "施放失败：" + outcome);
     }
 
-    private static void assertCharge(TestContext context, ChargePair pair, double expected) {
+    private static void assertCharge(GameTestHelper context, ChargePair pair, double expected) {
         // 有效力量由 Framework 计算，实伤由同步挥剑的两个玩家直接测量。
         double ratio = strength(pair.boosted()) / strength(pair.control());
         context.assertTrue(Math.abs(ratio - expected) < EPSILON,
@@ -264,15 +263,15 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         return plan.coefficient();
     }
 
-    private static double strike(TestContext context, BasicTestPlayer fixture) {
+    private static double strike(GameTestHelper context, BasicTestPlayer fixture) {
         // 每次使用新的无护甲牛，避免无敌帧、旧伤和目标抗性影响实伤。
-        CowEntity target = EntityType.COW.create(context.getWorld());
+        Cow target = EntityType.COW.create(context.getLevel());
         if (target == null) {
             throw new IllegalStateException("无法创建伤害目标");
         }
-        target.setAiDisabled(true /* aiDisabled */);
-        target.refreshPositionAndAngles(fixture.player.getX(), fixture.player.getY(), fixture.player.getZ() + 1, 0, 0);
-        context.getWorld().spawnEntity(target);
+        target.setNoAi(true /* aiDisabled */);
+        target.moveTo(fixture.player.getX(), fixture.player.getY(), fixture.player.getZ() + 1, 0, 0);
+        context.getLevel().addFreshEntity(target);
         float before = target.getHealth();
         fixture.player.attack(target);
         double loss = before - target.getHealth();
@@ -281,7 +280,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         return loss;
     }
 
-    private static void exertArm(TestContext context, BasicTestPlayer fixture) {
+    private static void exertArm(GameTestHelper context, BasicTestPlayer fixture) {
         // 疲劳只能由 Framework 普通做功入口产生，不直接改写组织状态。
         var host = fixture.body();
         long now = now(fixture);
@@ -320,9 +319,9 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
                         .findFirst().orElseThrow().getFatigue()).sum();
     }
 
-    private static void later(TestContext context, int ticks, List<BasicTestPlayer> players, Runnable action) {
+    private static void later(GameTestHelper context, int ticks, List<BasicTestPlayer> players, Runnable action) {
         // 延迟断言失败时也释放真实在线玩家，避免跨测试保留宿主认领。
-        context.waitAndRun(ticks, () -> {
+        context.runAfterDelay(ticks, () -> {
             try {
                 action.run();
             } catch (RuntimeException | Error failure) {
@@ -341,6 +340,6 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
 
     private static long now(BasicTestPlayer fixture) {
         // 功法与身体共用主世界累计 tick 时钟。
-        return fixture.player.getServer().getOverworld().getTime() * MILLIS_PER_TICK;
+        return fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK;
     }
 }

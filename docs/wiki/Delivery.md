@@ -62,7 +62,7 @@ git diff --check
 `basic-techniques-final-validation.log`：4 JUnit 通过，GameTest 3/4 通过，整条命令退出 1，
 `BUILD FAILED in 49s`。随后单独执行 `test build` 通过，结果见下方最终产物记录。
 失败为 `lightStepUsesInputAndZeroInputFacesForward` 的「轻步未沿输入方向」。
-Human 对同次施放的每条冲量 `setVelocity`，UP 覆盖 INPUT；纯数据无合成三维冲量可表达，
+Human 对同次施放的每条冲量 `setDeltaMovement`，UP 覆盖 INPUT；纯数据无合成三维冲量可表达，
 须宿主修复正交分量组合及重试幂等。本仓保留方向断言，没有将失败改为跳过。
 完整测试名与 XML 位置见 [验证](Verification.md)。最终产物与 SHA-256 见本页末尾。
 

@@ -50,7 +50,7 @@ ID、时刻（±1 tick）、位置、`PLAYERS` 类别、音量与音调抖动区
 `staggerInCleaveWarmupSilencesTheRemainingSounds` 在破门起手中途僵直，此前的起手声照常响，之后的劈砍、命中与收势声都不再下发；
 `LightBodyGameTest` 的三格台阶用例断言起跳 tick 在起跳点恰好一次 `entity.rabbit.jump`；
 `soundOutsideTheRegistryIsSentInlineWithItsId` 验证注册表外的合法 ID 不按编号、随包带原 ID 下发。
-声音包按 16 格范围下发，同批并行的用例相距只有几格会互相听到，所以逐条数声音的用例各占一个 `batchId`。
+声音包按 16 格范围下发，同批并行的用例相距只有几格会互相听到，所以逐条数声音的用例各占一个 `batch`。
 用例先断言目录里确有声音，免得装配到无声音的旧 JAR 时期望与实际同为空而空过。
 `gametest` 的 `modLocalRuntime files(...)` 在 Gradle 配置阶段重映射：目录改动后同一次调用里新打的 JAR 赶不上，
 GameTest 跑的仍是上一版目录。改目录后先单独执行一次 `bash "gradlew" :fabric:build`；

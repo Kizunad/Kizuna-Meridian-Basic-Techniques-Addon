@@ -24,7 +24,7 @@ Human 宿主负责映射 Players-Animation 的同名动作；`technique_dash` �
 本仓不实现动画或运行时 Java；必需宿主与动画模块按整套装配安装。
 
 三式都用功法库的 `sound` 效果（`SoundCue`）配原版音效，不带音频文件。服务端在 `at_millis` 时刻、施放者位置
-（`CASTER`）按 `SoundCategory.PLAYERS` 播放，类人与玩家同一路径。调息、蓄力起手被打断后，起效声不再播放。
+（`CASTER`）按 `SoundSource.PLAYERS` 播放，类人与玩家同一路径。调息、蓄力起手被打断后，起效声不再播放。
 轻步的起跳声写在跃步档 `leap.takeoff_sound`：每次实际跃起时在起跳者位置响，落地仍是原版方块脚步声。
 带 ± 的音调每次播放在该范围内随机。
 

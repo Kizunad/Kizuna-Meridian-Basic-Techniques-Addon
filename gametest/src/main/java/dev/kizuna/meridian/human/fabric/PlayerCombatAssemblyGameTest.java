@@ -13,23 +13,22 @@ import dev.kizuna.meridian.technique.server.TechniqueState;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.DoorBlock;
-import net.minecraft.block.enums.DoubleBlockHalf;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.CowEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.test.GameTest;
-import net.minecraft.test.TestContext;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.Vec3;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -62,48 +61,48 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     /** 不在服务端注册表里的声音事件，模拟纯数据功法书在自己客户端资源里声明的声音。 */
     private static final String INLINE_SOUND = "meridian_basic_techniques:test.inline_hum";
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void combatProtocolCleaveBreaksWoodenDoorAndWearsIronAxe(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void combatProtocolCleaveBreaksWoodenDoorAndWearsIronAxe(GameTestHelper context) {
         // 生存玩家读卷后发正式战斗载荷，门与耐久都等待真实施放时钟推进。
         var fixture = prepared(context);
-        BlockPos lower = fixture.player.getBlockPos().south();
-        var world = context.getWorld();
-        world.setBlockState(lower.down(), Blocks.STONE.getDefaultState());
-        var door = Blocks.OAK_DOOR.getDefaultState();
-        world.setBlockState(lower, door);
-        world.setBlockState(lower.up(), door.with(DoorBlock.HALF, DoubleBlockHalf.UPPER));
+        BlockPos lower = fixture.player.blockPosition().south();
+        var world = context.getLevel();
+        world.setBlockAndUpdate(lower.below(), Blocks.STONE.defaultBlockState());
+        var door = Blocks.OAK_DOOR.defaultBlockState();
+        world.setBlockAndUpdate(lower, door);
+        world.setBlockAndUpdate(lower.above(), door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER));
         press(fixture, "cleave");
         assertAcceptedLater(context, fixture, "cleave");
-        context.waitAndRun(CLEAVE_OBSERVE_TICKS, () -> {
+        context.runAfterDelay(CLEAVE_OBSERVE_TICKS, () -> {
             try (fixture) {
                 context.assertTrue(world.getBlockState(lower).isAir()
-                        && world.getBlockState(lower.up()).isAir(), "战斗协议劈门未移除木门上下半");
-                context.assertTrue(fixture.player.getMainHandStack().getDamage() == CLEAVE_WEAR,
+                        && world.getBlockState(lower.above()).isAir(), "战斗协议劈门未移除木门上下半");
+                context.assertTrue(fixture.player.getMainHandItem().getDamageValue() == CLEAVE_WEAR,
                         "战斗协议劈门的铁斧末击耐久错误");
-                context.complete();
+                context.succeed();
             } finally {
-                world.setBlockState(lower.up(), Blocks.AIR.getDefaultState());
-                world.setBlockState(lower, Blocks.AIR.getDefaultState());
+                world.setBlockAndUpdate(lower.above(), Blocks.AIR.defaultBlockState());
+                world.setBlockAndUpdate(lower, Blocks.AIR.defaultBlockState());
             }
         });
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void combatProtocolKnockDamagesMobThroughMuscleRules(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void combatProtocolKnockDamagesMobThroughMuscleRules(GameTestHelper context) {
         // 原始钝击剂量与护甲前肌肉倍率分开核对，目标仍进入原版实际扣血链。
         var fixture = prepared(context);
-        var target = new ObservedCow(fixture.player.getServerWorld());
+        var target = new ObservedCow(fixture.player.serverLevel());
         double initialStrength = strength(fixture);
-        Vec3d position = fixture.player.getPos().add(0, 0, TARGET_DISTANCE);
-        target.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
-        target.setAiDisabled(true /* aiDisabled */);
+        Vec3 position = fixture.player.position().add(0, 0, TARGET_DISTANCE);
+        target.moveTo(position.x, position.y, position.z, 0, 0);
+        target.setNoAi(true /* aiDisabled */);
         target.setNoGravity(true /* noGravity */);
-        target.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(TARGET_HEALTH);
+        target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(TARGET_HEALTH);
         target.setHealth((float) TARGET_HEALTH);
-        context.getWorld().spawnEntity(target);
+        context.getLevel().addFreshEntity(target);
         press(fixture, "knock");
         assertAcceptedLater(context, fixture, "knock");
-        context.waitAndRun(KNOCK_OBSERVE_TICKS, () -> {
+        context.runAfterDelay(KNOCK_OBSERVE_TICKS, () -> {
             try (fixture) {
                 double rawDamage = IRON_AXE_DAMAGE * KNOCK_MULTIPLIER;
                 context.assertTrue(target.hits == KNOCK_HIT_COUNT && Math.abs(target.dose - rawDamage) < EPSILON,
@@ -113,15 +112,15 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
                 double actual = TARGET_HEALTH - target.getHealth();
                 context.assertTrue(actual >= expected * (1 - MULTIHIT_FATIGUE_RATIO) && actual <= expected + EPSILON,
                         "Damage 肌肉缩放实伤不符：实际 " + actual + "，预期 " + expected);
-                context.complete();
+                context.succeed();
             } finally {
                 target.discard();
             }
         });
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE, tickLimit = SOUND_TEST_TICKS, batchId = SOUND_BATCH)
-    public void staggerInCleaveWarmupSilencesTheRemainingSounds(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = SOUND_TEST_TICKS, batch = SOUND_BATCH)
+    public void staggerInCleaveWarmupSilencesTheRemainingSounds(GameTestHelper context) {
         // 起手与踏步声照常响；起手中被僵直打断后，劈砍、命中与收势声都不再下发。
         var fixture = prepared(context);
         var cues = soundEffects("cleave");
@@ -131,29 +130,29 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         fixture.connection.sounds.clear();
         press(fixture, "cleave");
         assertAcceptedLater(context, fixture, "cleave");
-        context.waitAndRun(STAGGER_TICKS, () -> {
-            long staggered = context.getWorld().getTime();
+        context.runAfterDelay(STAGGER_TICKS, () -> {
+            long staggered = context.getLevel().getGameTime();
             try {
                 interrupt(context, fixture, cues, catalogIds);
             } catch (RuntimeException | Error failure) {
                 fixture.close();
                 throw failure;
             }
-            context.waitAndRun(SILENCE_TICKS, () -> {
+            context.runAfterDelay(SILENCE_TICKS, () -> {
                 try (fixture) {
                     var late = heard(fixture, catalogIds).stream()
                             .filter(sound -> sound.tick() > staggered)
                             .map(BasicTestPlayer.HeardSound::soundId)
                             .toList();
                     context.assertTrue(late.isEmpty(), "打断后仍有功法声音：" + late);
-                    context.complete();
+                    context.succeed();
                 }
             });
         });
     }
 
-    @GameTest(templateName = FabricGameTest.EMPTY_STRUCTURE)
-    public void soundOutsideTheRegistryIsSentInlineWithItsId(TestContext context) {
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    public void soundOutsideTheRegistryIsSentInlineWithItsId(GameTestHelper context) {
         // 未注册的声音照常下发：不按注册表编号，而是随包带上原 ID，客户端有该资源就能播放。
         try (var fixture = new BasicTestPlayer(context)) {
             var cue = SoundCue.newBuilder()
@@ -165,12 +164,12 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
             var heard = fixture.connection.sounds.stream().map(BasicTestPlayer.HeardSound::soundId).toList();
             context.assertTrue(heard.equals(List.of(INLINE_SOUND)), "未注册声音没有按原 ID 下发：" + heard);
             var sound = fixture.connection.sounds.get(0).packet().getSound();
-            context.assertTrue(sound.getKey().isEmpty(), "未注册声音不应按注册表编号下发");
+            context.assertTrue(sound.unwrapKey().isEmpty(), "未注册声音不应按注册表编号下发");
         }
-        context.complete();
+        context.succeed();
     }
 
-    private static void interrupt(TestContext context, BasicTestPlayer fixture, List<TechniqueEffect> cues,
+    private static void interrupt(GameTestHelper context, BasicTestPlayer fixture, List<TechniqueEffect> cues,
             Set<String> catalogIds) {
         // 打断前应已听到起手阶段的全部声音；伤害附属用的僵直入口随后打断可打断的起手。
         long elapsedMillis = (STAGGER_TICKS - CAST_ACCEPT_TICKS) * MILLIS_PER_TICK;
@@ -181,7 +180,7 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         var early = heard(fixture, catalogIds).stream().map(BasicTestPlayer.HeardSound::soundId).toList();
         context.assertTrue(early.size() == due, "起手阶段声音条数错误：" + early);
         var stagger = new TechniqueService.Stagger(STAGGER_MILLIS, FULL_SPEED);
-        var outcome = TechniqueFabric.service().stagger(fixture.player.getUuid(), stagger);
+        var outcome = TechniqueFabric.service().stagger(fixture.player.getUUID(), stagger);
         context.assertTrue(outcome.isPresent() && outcome.get().getPhase() == CastPhase.INTERRUPTED,
                 "僵直没有打断破门起手：" + outcome);
     }
@@ -199,15 +198,15 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
                 .toList();
     }
 
-    private static BasicTestPlayer prepared(TestContext context) {
+    private static BasicTestPlayer prepared(GameTestHelper context) {
         // 开脉补元只作为准备；知识来自卷轴，攻击时两手持物强制使用单手剂量。
         var fixture = PlayerAssemblyGameTest.prepared(context);
         PlayerAssemblyGameTest.learnScroll(context, fixture, PREFIX + "upper");
-        Vec3d position = Vec3d.ofBottomCenter(context.getAbsolutePos(new BlockPos(1, PLAYER_HEIGHT, 1)));
-        fixture.player.refreshPositionAndAngles(position.x, position.y, position.z, 0, 0);
-        fixture.player.changeGameMode(GameMode.SURVIVAL);
-        fixture.player.setStackInHand(Hand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
-        fixture.player.setStackInHand(Hand.OFF_HAND, new ItemStack(Items.SHIELD));
+        Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(1, PLAYER_HEIGHT, 1)));
+        fixture.player.moveTo(position.x, position.y, position.z, 0, 0);
+        fixture.player.setGameMode(GameType.SURVIVAL);
+        fixture.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
+        fixture.player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
         return fixture;
     }
 
@@ -220,15 +219,15 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     private static double strength(BasicTestPlayer fixture) {
         // 等待起手期间没有其他做功；使用扣账前倍率，目标 damage 入口已在出手上下文内部。
         var body = fixture.body();
-        body.settle(fixture.player.getServer().getOverworld().getTime() * MILLIS_PER_TICK);
+        body.settle(fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK);
         var muscle = DamagePreferences.parse("hp_per_vanilla_hp = 1").muscle();
         return muscle.plan(BodyProtobuf.toMessage(body.snapshot()),
                 MuscleRules.Arm.RIGHT, MuscleRules.Grip.MAIN_HAND).coefficient();
     }
 
-    private static void assertAcceptedLater(TestContext context, BasicTestPlayer fixture, String path) {
+    private static void assertAcceptedLater(GameTestHelper context, BasicTestPlayer fixture, String path) {
         // 网络接收器在主线程排队，下一轮读取唯一身体确认没有绕过施放服务。
-        context.waitAndRun(CAST_ACCEPT_TICKS, () -> {
+        context.runAfterDelay(CAST_ACCEPT_TICKS, () -> {
             try {
                 var progress = TechniqueState.read(fixture.body().snapshot());
                 context.assertTrue(progress.hasActiveCast()
@@ -243,23 +242,23 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    private static final class ObservedCow extends CowEntity {
+    private static final class ObservedCow extends Cow {
         private int hits;
         private double dose;
         private String damageType = "";
 
-        private ObservedCow(ServerWorld world) {
+        private ObservedCow(ServerLevel world) {
             // 观察入口剂量但保持牛的原版无护甲防御链。
             super(EntityType.COW, world);
         }
 
         @Override
-        public boolean damage(DamageSource source, float amount) {
+        public boolean hurt(DamageSource source, float amount) {
             // 只记录剂量与类型，保持原版扣血及 Damage 的肌肉缩放路径。
             hits++;
             dose += amount;
-            damageType = source.getTypeRegistryEntry().getKey().orElseThrow().getValue().toString();
-            return super.damage(source, amount);
+            damageType = source.typeHolder().unwrapKey().orElseThrow().location().toString();
+            return super.hurt(source, amount);
         }
     }
 }

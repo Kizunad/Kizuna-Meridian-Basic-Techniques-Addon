@@ -15,9 +15,8 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastRequest;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
 import dev.kizuna.meridian.technique.server.TechniqueBinder;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -26,8 +25,10 @@ import net.minecraft.world.phys.Vec3;
 import java.util.List;
 import java.util.UUID;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 正式步行、疾跑与施放产生疲劳，六块腿肌共同做功并拒绝超出预算的活动。 */
-public final class LegTechniqueGameTest implements FabricGameTest {
+public final class LegTechniqueGameTest {
     private static final String STEP = "meridian_basic_techniques:light_step";
     private static final String RAM = "meridian_door_breaker:ram";
     private static final String LEG_TAG = "human:leg_muscle";
@@ -46,19 +47,19 @@ public final class LegTechniqueGameTest implements FabricGameTest {
     private static final double INJURY_RATIO = 0.9;
     private static final double BURST_FRACTION = 0.25;
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT)
+    @GameTest(maxTicks = TEST_TIMEOUT)
     public void lightStepAfterWalkingAndSprintingCanCastAndExertThreeTimes(GameTestHelper context) {
         // 真实走六十秒再疾跑十五秒，每次施放结束后还要支付一次跃步做功。
         walkThenCast(context, STEP);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT)
+    @GameTest(maxTicks = TEST_TIMEOUT)
     public void ramAfterWalkingAndSprintingCanCastThreeTimes(GameTestHelper context) {
         // 相同运动负载后连续三次撞门，期间不治疗、不补体力或更换身体。
         walkThenCast(context, RAM);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void exhaustedLegsRejectBothTechniques(GameTestHelper context) {
         // 通过普通做功消耗八成耐力；绑定仍成功，但实际功率预算不足必须拒绝。
         for (String technique : List.of(STEP, RAM)) {
@@ -70,7 +71,7 @@ public final class LegTechniqueGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void seriouslyInjuredLegsRejectBothTechniques(GameTestHelper context) {
         // 保留一成组织 HP，绑定仍成功，伤势压低的做功预算负责拒绝。
         for (String technique : List.of(STEP, RAM)) {
@@ -163,7 +164,7 @@ public final class LegTechniqueGameTest implements FabricGameTest {
                 "完整装配载入了旧腿槽目录：" + technique);
         var fixture = PlayerAssemblyGameTest.prepared(context);
         Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(1, PLAYER_HEIGHT, 1)));
-        fixture.player.moveTo(position.x, position.y, position.z, 0, 0);
+        fixture.player.snapTo(position.x, position.y, position.z, 0, 0);
         fixture.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
         String volume = "meridian_door_breaker:upper";
         if (technique.equals(STEP)) {
@@ -252,7 +253,7 @@ public final class LegTechniqueGameTest implements FabricGameTest {
 
     private static long now(BasicTestPlayer fixture) {
         // 与宿主一致使用主世界 tick 作为身体时钟。
-        return fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK;
+        return fixture.player.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK;
     }
 
     private static void later(GameTestHelper context, long ticks, BasicTestPlayer fixture, Runnable action) {

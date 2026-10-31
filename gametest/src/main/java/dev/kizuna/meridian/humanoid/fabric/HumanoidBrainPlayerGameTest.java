@@ -7,18 +7,19 @@ import dev.kizuna.meridian.protocol.BodyProtobuf;
 import dev.kizuna.meridian.technique.fabric.TechniqueFabric;
 import dev.kizuna.meridian.technique.fabric.world.TechniqueLeapAccess;
 import dev.kizuna.meridian.technique.server.TechniqueState;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.monster.Vindicator;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.monster.illager.Vindicator;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -32,7 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** 类人大脑对真实玩家：被打后撤退或还手，卫道士轻身跃到静立玩家面前再出招。 */
-public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
+public final class HumanoidBrainPlayerGameTest {
     private static final String DOOR_BREAKER_PREFIX = "meridian_door_breaker:";
     private static final String LIGHT_STEP = "meridian_basic_techniques:light_step";
     private static final int TEST_TIMEOUT = 600;
@@ -47,11 +48,11 @@ public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
     private static final float PLAYER_YAW = 180;
     private static final Set<Decision.Action> RETREATS = EnumSet.of(Decision.Action.RETREAT, Decision.Action.KITE);
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT,
-            batch = "humanoid-brain-player-retreat")
+    @GameTest(maxTicks = TEST_TIMEOUT,
+            environment = "meridian_basic_techniques_test:humanoid_brain_player_retreat")
     public void wanderingVillagerHitByPlayerRetreats(GameTestHelper context) {
         // 只会基础三卷的游炁村民被玩家打一拳后由大脑撤退拉开。
-        Villager villager = spawn(context, EntityType.VILLAGER, HumanoidTier.WANDERING_QI, "player-retreat");
+        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.WANDERING_QI, "player-retreat");
         var fixture = new BasicTestPlayer(context);
         ServerPlayer player = standing(fixture, villager, HIT_DISTANCE);
         var stage = new HumanoidTestStage(context, () -> {
@@ -69,11 +70,11 @@ public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT,
-            batch = "humanoid-brain-player-fight-back")
+    @GameTest(maxTicks = TEST_TIMEOUT,
+            environment = "meridian_basic_techniques_test:humanoid_brain_player_fight_back")
     public void armedTrueQiVillagerHitByPlayerFightsBack(GameTestHelper context) {
         // 学了破门上卷、持斧的真炁村民被玩家打一拳后还手，破门式经 Human 扣玩家生命。
-        Villager villager = spawn(context, EntityType.VILLAGER, HumanoidTier.TRUE_QI, "player-fight-back");
+        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.TRUE_QI, "player-fight-back");
         villager.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
         HumanoidTechniqueHost.prepare(villager);
         TechniqueFabric.service().learn(villager.getUUID(), DOOR_BREAKER_PREFIX + "upper");
@@ -94,11 +95,11 @@ public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT,
-            batch = "humanoid-brain-player-assault")
+    @GameTest(maxTicks = TEST_TIMEOUT,
+            environment = "meridian_basic_techniques_test:humanoid_brain_player_assault")
     public void trueQiVindicatorLeapsToStandingPlayerAndStrikes(GameTestHelper context) {
         // 持斧真炁卫道士对六格外静立的玩家先轻身，跃到玩家面前一到两格，再出破门打击式。
-        Vindicator vindicator = spawn(context, EntityType.VINDICATOR, HumanoidTier.TRUE_QI, "player-assault");
+        Vindicator vindicator = spawn(context, EntityTypes.VINDICATOR, HumanoidTier.TRUE_QI, "player-assault");
         vindicator.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
         vindicator.setNoAi(true /* aiDisabled */);
         var fixture = new BasicTestPlayer(context);
@@ -131,10 +132,10 @@ public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
         if (stale != null) {
             stale.discard();
         }
-        T mob = type.create(context.getLevel());
+        T mob = type.create(context.getLevel(), EntitySpawnReason.COMMAND);
         Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(SUBJECT_POS));
         mob.setUUID(id);
-        mob.moveTo(position.x, position.y, position.z, 0, 0);
+        mob.snapTo(position.x, position.y, position.z, 0, 0);
         mob.setPersistenceRequired();
         HumanoidSpeciesBirths.birth(mob, tier);
         context.assertTrue(context.getLevel().addFreshEntity(mob), "实体未加入世界：" + name);
@@ -145,7 +146,7 @@ public final class HumanoidBrainPlayerGameTest implements FabricGameTest {
         // 生存模式玩家站在实体正南若干格、面朝实体，不移动。
         ServerPlayer player = fixture.player();
         Vec3 position = mob.position().add(0, 0, distance);
-        player.moveTo(position.x, position.y, position.z, PLAYER_YAW, 0);
+        player.snapTo(position.x, position.y, position.z, PLAYER_YAW, 0);
         player.setGameMode(GameType.SURVIVAL);
         return player;
     }

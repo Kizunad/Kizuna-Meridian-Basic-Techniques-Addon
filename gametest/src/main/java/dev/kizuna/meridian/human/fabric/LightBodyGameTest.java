@@ -8,15 +8,15 @@ import dev.kizuna.meridian.technique.fabric.world.TechniqueLeaps;
 import dev.kizuna.meridian.technique.fabric.world.TechniqueStatusBenefits;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.LeapMotion;
 import dev.kizuna.meridian.technique.server.TechniqueSoundCues;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
-import net.minecraft.network.protocol.game.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.world.entity.monster.Vindicator;
+import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.entity.monster.illager.Vindicator;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -24,10 +24,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 真实身体、原版效果、碰撞与落地链的完整装配验收。 */
-public final class LightBodyGameTest implements FabricGameTest {
+public final class LightBodyGameTest {
     private static final String EFFECT = "meridian_basic_techniques:light_body";
-    private static final int PERMISSION = 2;
+    private static final PermissionSet PERMISSION = LevelBasedPermissionSet.GAMEMASTER;
     private static final int ARENA_Y = 100;
     private static final int ARENA_SPACING = 40;
     private static final int ARENA_RADIUS = 16;
@@ -50,7 +52,7 @@ public final class LightBodyGameTest implements FabricGameTest {
     private static final double EPSILON = 0.000001;
     private static final AtomicInteger arenas = new AtomicInteger();
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void networkRejectsForgedVelocityAndDuplicateRequestDoesNotChargeAgain(GameTestHelper context) {
         // 经正式自定义载荷接收器，客户端上传位置或重复按键都不能改变权威扣费。
         try (var fixture = prepare(context)) {
@@ -75,17 +77,12 @@ public final class LightBodyGameTest implements FabricGameTest {
     }
 
     private static void request(BasicTestPlayer fixture, LeapMotion message) {
-        // 按真实频道的长度前缀 Protobuf 编码，不直接调用起跳方法。
-        var buffer = PacketByteBufs.create().writeByteArray(message.toByteArray());
-        try {
-            fixture.player.connection.handleCustomPayload(
-                    new ServerboundCustomPayloadPacket(TechniqueLeapNetworking.CHANNEL, buffer));
-        } finally {
-            buffer.release();
-        }
+        // 经真实频道的载荷进入正式接收器，不直接调用起跳方法；26.2 的载荷由频道统一编解码。
+        fixture.player.connection.handleCustomPayload(
+                new ServerboundCustomPayloadPacket(TechniqueLeapNetworking.CHANNEL.payload(message.toByteArray())));
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void worldTargetsRejectLiquidsCeilingAndMissingSupport(GameTestHelper context) {
         // 真实碰撞与流体采样必须剔除危险顶面，不能只依赖纯求解器的候选夹具。
         try (var fixture = prepare(context)) {
@@ -115,13 +112,12 @@ public final class LightBodyGameTest implements FabricGameTest {
                 "选点接受了流体、无净空或悬空格");
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void commandEffectIsQuietVisibleAndRefreshesInsteadOfStacking(GameTestHelper context) {
         // 原版命令使用真实注册表，重复施放覆盖等级并刷新同一个状态。
         try (var fixture = prepare(context)) {
             var source = fixture.player.createCommandSourceStack().withPermission(PERMISSION);
-            int result = fixture.player.getServer().getCommands().performPrefixedCommand(source,
-                    "effect give @s " + EFFECT + " 20 0");
+            int result = BasicTestCommands.run(source, "effect give @s " + EFFECT + " 20 0");
             context.assertTrue(result == 1, "原版命令无法给予轻身");
             var registered = registered();
             var status = fixture.player.getEffect(registered.effect());
@@ -135,7 +131,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void raycastWallSnapsToThreeBlockTopAndLandsWithoutDamage(GameTestHelper context) {
         // 准星指向墙面，由生产求解器吸附墙头，不能靠测试直接传送落点。
         var fixture = prepare(context);
@@ -160,7 +156,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void threeBlockStepLandsWithinFourteenFlightTicks(GameTestHelper context) {
         // 准星指向三格高台阶正面，直线预算内吸附台面，按起跳速度求出的飞行不超过 14 tick。
         var fixture = prepare(context);
@@ -190,7 +186,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void threeLeapsPayWorkButNeverSpendQiAndRespectLandingDelay(GameTestHelper context) {
         // 连续起跳共享同一身体，每次先检查即时真元与真实疲劳，再等待自然落地。
         var fixture = prepare(context);
@@ -198,7 +194,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         repeat(context, fixture, 0);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void earlyRequestIsHeldUntilReadyTickWithoutCorrection(GameTestHelper context) {
         // 落地间隔内到达的请求挂起而不回拉；挂起期间的预测位置包不被采纳，到时从落地处起跳。
         var fixture = prepare(context);
@@ -214,7 +210,7 @@ public final class LightBodyGameTest implements FabricGameTest {
                 context.assertTrue(access.meridian$getLeap() == null && access.meridian$getLeapPending(),
                         "落地间隔内的请求没有挂起");
                 var predicted = new ServerboundMovePlayerPacket.Pos(landed.x, landed.y + 1,
-                        landed.z + LEAP_DISTANCE, false /* onGround */);
+                        landed.z + LEAP_DISTANCE, false /* onGround */, false /* horizontalCollision */);
                 fixture.player.connection.handleMovePlayer(predicted);
                 context.assertTrue(fixture.player.position().equals(landed), "挂起期间采纳了预测位置包");
                 awaitHeldLeap(context, fixture, landed, 0);
@@ -222,7 +218,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void fatiguedLegsAndSneakingKeepVanillaJump(GameTestHelper context) {
         // 真实做功制造疲劳后拒绝跃步，原版跳跃入口仍可执行。
         try (var fixture = prepare(context)) {
@@ -242,7 +238,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void fallingBelowIntendedLandingStillDealsFallDamage(GameTestHelper context) {
         // 起跳时没有安全落点，只豁免原定同高跃步；下方十格平台必须结算额外摔伤。
         var fixture = prepare(context);
@@ -264,7 +260,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void solidWallStopsLeapWithoutPassingThrough(GameTestHelper context) {
         // 起跳后在路径上造不可越过的实墙，原版碰撞必须截住水平运动。
         var fixture = prepare(context);
@@ -280,7 +276,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_LIMIT)
+    @GameTest(maxTicks = TEST_LIMIT)
     public void vindicatorWithEffectLeapsTowardPlayer(GameTestHelper context) {
         // 真实真炁卫道士读原版目标，移动阶段自动用共享求解器追击玩家。
         var fixture = prepare(context);
@@ -297,8 +293,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         var spawnPos = context.absolutePos(new BlockPos(1, WALL_HEIGHT, 1));
         var source = fixture.player.createCommandSourceStack().withPermission(PERMISSION)
                 .withPosition(Vec3.atBottomCenterOf(spawnPos));
-        int result = fixture.player.getServer().getCommands().performPrefixedCommand(source,
-                "meridian humanoid spawn vindicator true_qi");
+        int result = BasicTestCommands.run(source, "meridian humanoid spawn vindicator true_qi");
         context.assertTrue(result > 0, "无法生成真炁卫道士：" + fixture.connection.packets.stream()
                 .filter(ClientboundSystemChatPacket.class::isInstance)
                 .map(ClientboundSystemChatPacket.class::cast)
@@ -338,7 +333,7 @@ public final class LightBodyGameTest implements FabricGameTest {
     private static void repeat(GameTestHelper context, BasicTestPlayer fixture, int completed) {
         // 在同一平台往返，落地六 tick 后立即再跳，避免把连跳变成重新施放。
         var actor = fixture.player;
-        long now = actor.getServer().overworld().getGameTime() * MILLIS_PER_TICK;
+        long now = actor.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK;
         fixture.body().settle(now);
         double qi = qi(fixture);
         double fatigue = fatigue(fixture);
@@ -407,7 +402,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         clearArena(context, floor);
         platform(context, floor);
         var position = Vec3.atBottomCenterOf(floor.above());
-        fixture.player.moveTo(position.x, position.y, position.z, 0, 0);
+        fixture.player.snapTo(position.x, position.y, position.z, 0, 0);
         fixture.player.setGameMode(GameType.SURVIVAL);
         fixture.player.setNoGravity(false /* noGravity */);
         fixture.player.setOnGround(true /* onGround */);
@@ -417,10 +412,10 @@ public final class LightBodyGameTest implements FabricGameTest {
 
     private static void forceArena(GameTestHelper context, BlockPos center) {
         // 远离测试结构的场地也必须进入实体 tick 范围，才能验证真实碰撞与 AI。
-        var minimum = new ChunkPos(center.offset(-ARENA_RADIUS, 0, -ARENA_RADIUS));
-        var maximum = new ChunkPos(center.offset(ARENA_RADIUS, 0, ARENA_RADIUS));
-        for (int x = minimum.x; x <= maximum.x; x++) {
-            for (int z = minimum.z; z <= maximum.z; z++) {
+        var minimum = ChunkPos.containing(center.offset(-ARENA_RADIUS, 0, -ARENA_RADIUS));
+        var maximum = ChunkPos.containing(center.offset(ARENA_RADIUS, 0, ARENA_RADIUS));
+        for (int x = minimum.x(); x <= maximum.x(); x++) {
+            for (int z = minimum.z(); z <= maximum.z(); z++) {
                 context.getLevel().setChunkForced(x, z, true /* forced */);
             }
         }

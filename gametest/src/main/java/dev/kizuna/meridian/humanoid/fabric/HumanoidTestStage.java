@@ -2,8 +2,8 @@ package dev.kizuna.meridian.humanoid.fabric;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
-import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
 
 /** 一个类人用例的延迟步骤：任何一步失败都先清理在线玩家、实体和全局规则，保留原始失败原因。 */
 final class HumanoidTestStage {
@@ -22,14 +22,14 @@ final class HumanoidTestStage {
     }
 
     void await(int ticks, BooleanSupplier condition, Supplier<String> failure, Runnable next) {
-        // 每 tick 检查一次，期限内满足就继续，到期仍不满足即失败。
+        // 每 tick 检查一次，期限内满足就继续，到期仍不满足即失败；26.2 的断言异常带组件消息与失败 tick。
         if (condition.getAsBoolean()) {
             guarded(next);
             return;
         }
         if (ticks == 0) {
             guarded(() -> {
-                throw new GameTestAssertException(failure.get());
+                throw context.assertionException(Component.literal(failure.get()));
             });
             return;
         }

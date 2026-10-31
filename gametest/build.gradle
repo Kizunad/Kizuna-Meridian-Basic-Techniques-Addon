@@ -1,23 +1,28 @@
-plugins { id 'fabric-loom' }
+plugins { id 'net.fabricmc.fabric-loom' }
 
 description = '独立 GameTest 装配，验证真实目录、按卷学习和原版数据注册表。'
 
 dependencies {
+    // 26.x 不混淆：直接用官方名编译，没有映射，模组依赖也不经重映射。
     minecraft libs.minecraft
-    mappings loom.officialMojangMappings()
-    modImplementation libs.fabric.loader
-    modImplementation libs.fabric.api
+    implementation libs.fabric.loader
+    implementation libs.fabric.api
     // 相邻仓库在 settings 中以源码组合；与原先读单个 JAR 一致只取各模块本身，传递库由完整装配在运行时补齐。
-    modImplementation('dev.kizuna.meridian.human:fabric') { transitive = false }
+    implementation('dev.kizuna.meridian.human:fabric') { transitive = false }
     implementation project(':verification')
-    modCompileOnly('dev.kizuna.meridian.vanilla:fabric') { transitive = false }
-    modImplementation('dev.kizuna.meridian.technique:fabric') { transitive = false }
-    modCompileOnly('dev.kizuna.meridian.combat:fabric') { transitive = false }
+    compileOnly('dev.kizuna.meridian.vanilla:fabric') { transitive = false }
+    implementation('dev.kizuna.meridian.technique:fabric') { transitive = false }
+    // 登录假玩家夹具来自功法库的 testFixtures，与功法 fabric 同经源码组合解析。
+    implementation testFixtures('dev.kizuna.meridian.technique:fabric')
+    // 26.2 的战斗与跃步通道是 Framework 的 ProtobufChannel，测试按通道构造载荷；运行时由完整装配提供。
+    compileOnly('dev.kizuna.meridian:fabric') { transitive = false }
+    compileOnly('dev.kizuna.meridian.combat:fabric') { transitive = false }
     compileOnly('dev.kizuna.meridian.combat:shared') { transitive = false }
-    modCompileOnly('dev.kizuna.meridian.humanoid:fabric') { transitive = false }
+    compileOnly('dev.kizuna.meridian.humanoid:fabric') { transitive = false }
     compileOnly('dev.kizuna.meridian.humanoid:server') { transitive = false }
-    // 测试入口与正式数据包分开加载，验证发行包自己的清单发现。
-    modLocalRuntime files(project(':fabric').tasks.named('jar'))
+    // 测试入口与正式数据包分开加载，验证发行包自己的清单发现。Gradle 9 的依赖块里 project() 返回依赖对象，
+    // 所以从根工程取 fabric 工程的 jar 任务。
+    localRuntime files(rootProject.project(':fabric').tasks.named('jar'))
 }
 
 loom {

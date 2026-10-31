@@ -5,6 +5,9 @@
   "name": "基础功法整合验证",
   "environment": "server",
   "entrypoints": {
+    "main": [
+      "dev.kizuna.meridian.humanoid.fabric.BasicTestEnvironments"
+    ],
     "fabric-gametest": [
       "dev.kizuna.meridian.human.fabric.BasicTechniquesGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerAssemblyGameTest",

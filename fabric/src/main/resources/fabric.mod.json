@@ -11,9 +11,9 @@
     "meridian_technique:catalogs": "data/meridian_basic_techniques/technique_catalog.txtpb"
   },
   "depends": {
-    "java": ">=17",
-    "minecraft": "1.20.1",
-    "fabricloader": ">=0.16.10",
+    "java": ">=25",
+    "minecraft": "26.2",
+    "fabricloader": ">=0.20.1",
     "meridian_technique": "*",
     "meridian_human_host": "*"
   }

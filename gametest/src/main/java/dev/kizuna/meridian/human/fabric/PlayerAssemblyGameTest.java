@@ -10,13 +10,12 @@ import dev.kizuna.meridian.technique.fabric.world.TechniqueLeaps;
 import dev.kizuna.meridian.technique.fabric.TechniqueScrollItems;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.CreativeModeTab;
@@ -26,8 +25,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 完整装配的玩家入口：创造栏、卷轴学习、战斗载荷与真实身体效果。 */
-public final class PlayerAssemblyGameTest implements FabricGameTest {
+public final class PlayerAssemblyGameTest {
     private static final String BASIC = "meridian_basic_techniques:";
     private static final List<String> VOLUMES = List.of(BASIC + "breath_volume", BASIC + "charge_volume",
             BASIC + "light_step_volume", "meridian_door_breaker:upper");
@@ -49,12 +50,13 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
     private static final double COLLAPSE_STRENGTH = 0.85;
     private static final double EPSILON = 0.025;
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void creativeTechniqueGroupAndScrollsLearnBasicAndUpperVolume(GameTestHelper context) {
         // 创造栏内容来自正式注册表；学习必须通过玩家物品交互写入同一个身体。
         var group = TechniqueScrollItems.group();
         var world = context.getLevel();
-        context.assertTrue(BuiltInRegistries.CREATIVE_MODE_TAB.get(TechniqueScrollItems.GROUP_ID) == group, "功法栏未注册");
+        context.assertTrue(BuiltInRegistries.CREATIVE_MODE_TAB.getValue(TechniqueScrollItems.GROUP_ID) == group,
+                "功法栏未注册");
         context.assertTrue(group.getDisplayName().equals(
                 Component.translatable("itemGroup.meridian_technique.techniques")), "功法栏标题键错误");
         group.buildContents(new CreativeModeTab.ItemDisplayParameters(world.enabledFeatures(),
@@ -81,7 +83,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = CHARGE_LIMIT)
+    @GameTest(maxTicks = CHARGE_LIMIT)
     public void combatProtocolChargeFollowsHumanStrengthCurve(GameTestHelper context) {
         // 等待登录后的身体结算稳定，再从真实战斗接收器提交蓄力。
         var boosted = prepared(context);
@@ -103,7 +105,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void combatProtocolLightStepGrantsStatusThenJumpChoosesFacing(GameTestHelper context) {
         // 战斗 UI 施放先给予状态，后续跳跃请求才使用当前视线求初速度。
         var right = prepared(context);
@@ -150,7 +152,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
         var fixture = new BasicTestPlayer(context);
         guarded(List.of(fixture), () -> {
             var body = fixture.body();
-            long now = fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK;
+            long now = fixture.player.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK;
             context.assertTrue(body.completeOpening(now, "all") == FailureCode.FAILURE_CODE_UNSPECIFIED, "开拓失败");
             var fill = DebugQi.newBuilder().setMode(DebugQiMode.FILL_LUMENS).build();
             context.assertTrue(body.debugQi(now, fill) == FailureCode.FAILURE_CODE_UNSPECIFIED, "补元失败");
@@ -160,7 +162,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
 
     static void learnScroll(GameTestHelper context, BasicTestPlayer fixture, String volume) {
         // 创造玩家使用正式物品且保持数量，学习结果由独立断言检查。
-        var item = TechniqueScrollItems.scrolls().get(new ResourceLocation(volume + "_scroll"));
+        var item = TechniqueScrollItems.scrolls().get(Identifier.parse(volume + "_scroll"));
         context.assertTrue(item != null, "卷轴未登记：" + volume);
         var stack = new ItemStack(item, STACK_SIZE);
         fixture.player.setItemInHand(InteractionHand.MAIN_HAND, stack);
@@ -190,7 +192,7 @@ public final class PlayerAssemblyGameTest implements FabricGameTest {
     private static double strength(BasicTestPlayer fixture) {
         // 在主世界权威时钟结算后读取相同手臂与握持方式。
         var body = fixture.body();
-        body.settle(fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK);
+        body.settle(fixture.player.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK);
         var muscle = DamagePreferences.parse("hp_per_vanilla_hp = 1").muscle();
         return muscle.plan(BodyProtobuf.toMessage(body.snapshot()),
                 MuscleRules.Arm.RIGHT, MuscleRules.Grip.MAIN_HAND).coefficient();

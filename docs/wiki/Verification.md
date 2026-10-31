@@ -50,10 +50,11 @@ ID、时刻（±1 tick）、位置、`PLAYERS` 类别、音量与音调抖动区
 `staggerInCleaveWarmupSilencesTheRemainingSounds` 在破门起手中途僵直，此前的起手声照常响，之后的劈砍、命中与收势声都不再下发；
 `LightBodyGameTest` 的三格台阶用例断言起跳 tick 在起跳点恰好一次 `entity.rabbit.jump`；
 `soundOutsideTheRegistryIsSentInlineWithItsId` 验证注册表外的合法 ID 不按编号、随包带原 ID 下发。
-声音包按 16 格范围下发，同批并行的用例相距只有几格会互相听到，所以逐条数声音的用例各占一个 `batch`。
+声音包按 16 格范围下发，同批并行的用例相距只有几格会互相听到，所以逐条数声音的用例各占一个批次：
+26.2 按测试环境分批，这些用例各引用一个空环境（`gametest/src/main/resources/data/meridian_basic_techniques_test/test_environment/`）。
 用例先断言目录里确有声音，免得装配到无声音的旧 JAR 时期望与实际同为空而空过。
-`gametest` 的 `modLocalRuntime files(...)` 在 Gradle 配置阶段重映射：目录改动后同一次调用里新打的 JAR 赶不上，
-GameTest 跑的仍是上一版目录。改目录后先单独执行一次 `bash "gradlew" :fabric:build`；
+`gametest` 以 `localRuntime files(...)` 引用 `fabric` 的 `jar` 任务；26.x 不重映射，`runGametest` 前会先重打 JAR，
+改目录后不必再单独构建一次；
 叩门与破门的声音读 Door-Breaker 目录；Door-Breaker 在 settings 中以源码组合，GameTest 配置时按坐标构建并装入其当前目录，
 不必再先到 Door-Breaker 仓单独打包。
 `LegTechniqueGameTest` 通过 1200 tick 步行加 300 tick 疾跑的实际位置采样积累疲劳，
@@ -99,3 +100,30 @@ Windows 实机的卷轴操作、动画、美术和完整试玩装配由整合任
 数值与说明见 [目录](Catalog.md) 和 [宿主接入](Integration.md)。
 
 修复边界见 [安装与宿主接入](Integration.md)，历史验证与本轮续作结果见 [本地交付记录](Delivery.md)。
+
+## 2026-11-01：S3 迁到 Minecraft 26.2
+
+Minecraft 26.2、Java 25、Gradle 9.8.0 wrapper、Loom 1.19.3（26.x 不混淆，不重映射），版本取自 Framework 的版本目录。
+正式 Fabric 包仍是纯数据，`fabric.mod.json` 只把依赖改为 Java ≥25、Minecraft 26.2、Loader ≥0.20.1，目录与资源不变。
+
+GameTest 只做 26.2 改名与接口替换，断言不变：
+
+- 改用 Fabric `@GameTest`；未单独写时限的用例显式保留 1.20.1 默认的 100 tick（`BasicGameTestTicks`），
+  26.2 默认只有 20 tick。
+- `batch` 改为测试环境：叩门五例、破门僵直声音一例、类人大脑三例各引用一个空环境；
+  卫道士两例的批次前后钩子改为自定义环境类型 `meridian_basic_techniques_test:door_breaker_only`
+  （`BasicTestEnvironments`），批次前只发破门卷、批次后换回启动配置，两例仍各占一个批次。
+- `BasicTestPlayer` 经功法库 testFixtures 的 `TestPlayers.logIn` 登录；功法库的公共记录连接不能扩展，
+  本仓保留自己的记录连接，以便按世界 tick 记下声音包。战斗按键与跃步请求按通道构造载荷，
+  所以 `gametest` 编译期加 Framework 的 Fabric 模组（`compileOnly`，运行时由完整装配提供）。
+  身体世界状态改经 `HumanTechniqueHost.state()` 读取；速度包直接取 `movement()`（26.2 到编码时才量化）。
+- 命令执行入口不再返回结果，改由来源的结果回调取回（`BasicTestCommands`）；权限 2 改 `GAMEMASTER`。
+- 受击观察改覆盖 `hurtServer`，伤害类型键改 `identifier()`；实体类型常量改 `EntityTypes`，生成带 `COMMAND` 原因；
+  `moveTo` 改 `snapTo`，`mobGriefing` 改 `GameRules.MOB_GRIEFING`，区块坐标改 `ChunkPos.containing`，
+  移动包补 `horizontalCollision`，延迟失败改用 `context.assertionException`。
+
+命令：`./gradlew test build :gametest:compileJava`；`python3 scripts/check_docs.py`；`python3 scripts/check_data.py`；
+`git diff --check`。
+
+结果：JUnit 11/11（`BasicCatalogTest` 5、`LeapTargetTest` 5、`CatalogLanguageTest` 1），GameTest 源集编译通过，
+文档检查通过（7 个页面），数据检查通过。GameTest 尚未运行：迁移链迁完后用正式完整装配统一跑。

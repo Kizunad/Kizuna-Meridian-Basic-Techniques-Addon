@@ -19,23 +19,24 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueRefe
 import dev.kizuna.meridian.technique.server.TechniqueSoundCues;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.fabric.VanillaDamageFabric;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.monster.Vindicator;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.monster.illager.Vindicator;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -46,15 +47,17 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 用正式调度、伤害宿主、聊天与声音包观察验证逐击命中，不手动重置原版无敌帧。 */
-public final class KnockMultihitGameTest implements FabricGameTest {
+public final class KnockMultihitGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
     private static final String ARM = "left_upper_arm";
     private static final List<Long> HIT_TICKS = List.of(18L, 25L, 34L);
     private static final int OBSERVE_TICKS = 38;
     private static final int LEAVE_TICKS = 20;
     private static final int MAX_SEED = 100_000;
-    private static final int COMMAND_PERMISSION = 2;
+    private static final PermissionSet COMMAND_PERMISSION = LevelBasedPermissionSet.GAMEMASTER;
     private static final int HURT_DURATION = 10;
     private static final int TARGET_HEIGHT = 2;
     private static final int TARGET_Z = 3;
@@ -70,38 +73,38 @@ public final class KnockMultihitGameTest implements FabricGameTest {
     /** 声音包坐标是 1/8 格定点数，三轴截断误差合计不超过 0.25 格。 */
     private static final double SOUND_POSITION_TOLERANCE = 0.25;
     /** 声音包按 16 格范围下发，同批并行的测试相距只有几格，会互相听到；逐条数声音的测试各占一个批次。 */
-    private static final String MAIN_HAND_BATCH = "knock-sound-main-hand";
-    private static final String OFF_HAND_BATCH = "knock-sound-off-hand";
-    private static final String LEAVE_BATCH = "knock-sound-leave";
-    private static final String SPILLOVER_BATCH = "knock-sound-spillover";
-    private static final String MOB_BATCH = "knock-sound-mob";
+    private static final String MAIN_HAND_BATCH = "meridian_basic_techniques_test:knock_sound_main_hand";
+    private static final String OFF_HAND_BATCH = "meridian_basic_techniques_test:knock_sound_off_hand";
+    private static final String LEAVE_BATCH = "meridian_basic_techniques_test:knock_sound_leave";
+    private static final String SPILLOVER_BATCH = "meridian_basic_techniques_test:knock_sound_spillover";
+    private static final String MOB_BATCH = "meridian_basic_techniques_test:knock_sound_mob";
     private static boolean observerInstalled;
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = MAIN_HAND_BATCH)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT, environment = MAIN_HAND_BATCH)
     public void playerMainHandHitsThreeTimesAndLogsEachHit(GameTestHelper context) {
         // 主手完整结算，并核对玩家实际收到的三条调试日志。
         run(context, Mode.MAIN_HAND);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = OFF_HAND_BATCH)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT, environment = OFF_HAND_BATCH)
     public void playerOffhandHitsThreeTimes(GameTestHelper context) {
         // 副手走相同节奏与钝击冷却标签，不能漏掉中间一击。
         run(context, Mode.OFF_HAND);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = LEAVE_BATCH)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT, environment = LEAVE_BATCH)
     public void leavingAfterFirstHitMakesLaterHitsMiss(GameTestHelper context) {
         // 目标在第一下后离开范围，后两击按当时世界位置重新选目标。
         run(context, Mode.LEAVE);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = SPILLOVER_BATCH)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT, environment = SPILLOVER_BATCH)
     public void everyKnockSpillsFromAnAlreadyDestroyedArm(GameTestHelper context) {
         // 黑臂的三段伤害各走一次正式蔓延事务，日志保留三份蔓延明细。
         run(context, Mode.SPILLOVER);
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = MOB_BATCH)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT, environment = MOB_BATCH)
     public void vindicatorUsesTheSameThreeAuthoritativeHits(GameTestHelper context) {
         // 管理命令生成真炁卫道士，施放继续使用与玩家相同的正式目录。
         run(context, Mode.MOB);
@@ -140,7 +143,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
         installObserver();
         var target = new ObservedVillager(context.getLevel());
         Vec3 pos = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(1, TARGET_HEIGHT, TARGET_Z)));
-        target.moveTo(pos.x, pos.y, pos.z, 0, 0);
+        target.snapTo(pos.x, pos.y, pos.z, 0, 0);
         target.setNoAi(true /* aiDisabled */);
         target.setNoGravity(true /* noGravity */);
         target.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
@@ -152,8 +155,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
     private static LivingEntity summon(GameTestHelper context, BasicTestPlayer fixture) {
         // 指定档位仅用于准备，自动学卷和初始真元沿用公开管理入口。
         var source = fixture.player.createCommandSourceStack().withPermission(COMMAND_PERMISSION);
-        int result = fixture.player.getServer().getCommands().performPrefixedCommand(source,
-                "meridian humanoid spawn vindicator true_qi");
+        int result = BasicTestCommands.run(source, "meridian humanoid spawn vindicator true_qi");
         context.assertTrue(result > 0, "无法生成真炁卫道士");
         var mob = context.getLevel().getEntitiesOfClass(Vindicator.class,
                 fixture.player.getBoundingBox().inflate(1), entity -> true)
@@ -174,10 +176,10 @@ public final class KnockMultihitGameTest implements FabricGameTest {
             fixture.player.setGameMode(GameType.SURVIVAL);
         }
         Vec3 position = trial.target().position().add(0, 0, -TARGET_DISTANCE);
-        actor.moveTo(position.x, position.y, position.z, 0, 0);
+        actor.snapTo(position.x, position.y, position.z, 0, 0);
         if (mode == Mode.MOB) {
             // 旁观玩家与出手者同处，才能收到按距离下发的声音包。
-            fixture.player.moveTo(position.x, position.y, position.z, 0, 0);
+            fixture.player.snapTo(position.x, position.y, position.z, 0, 0);
         }
         InteractionHand hand = InteractionHand.MAIN_HAND;
         if (mode == Mode.OFF_HAND) {
@@ -186,8 +188,8 @@ public final class KnockMultihitGameTest implements FabricGameTest {
         actor.setItemInHand(hand, new ItemStack(Items.IRON_AXE));
         TechniqueFabric.service().learn(actor.getUUID(), PREFIX + "upper");
         var viewer = fixture.player;
-        int watched = viewer.getServer().getCommands().performPrefixedCommand(
-                viewer.createCommandSourceStack().withPermission(COMMAND_PERMISSION), "meridian watch damage on");
+        int watched = BasicTestCommands.run(viewer.createCommandSourceStack().withPermission(COMMAND_PERMISSION),
+                "meridian watch damage on");
         context.assertTrue(watched == 1, "伤害日志命令失败");
         if (mode == Mode.SPILLOVER) {
             destroyArm(context, trial.target());
@@ -446,14 +448,14 @@ public final class KnockMultihitGameTest implements FabricGameTest {
 
         private ObservedVillager(ServerLevel world) {
             // 保留原版村民身份，让类人宿主自动绑定正式成人模板。
-            super(EntityType.VILLAGER, world);
+            super(EntityTypes.VILLAGER, world);
         }
 
         @Override
-        public boolean hurt(DamageSource source, float amount) {
-            // 只固定命中手臂，记录原版 damage 返回后的闪红状态与位置，不清零受伤冷却。
+        public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+            // 只固定命中手臂，记录原版 damage 返回后的闪红状态与位置，不清零受伤冷却；26.2 服务端受击入口是 hurtServer。
             getRandom().setSeed(armSeed);
-            boolean accepted = super.hurt(source, amount);
+            boolean accepted = super.hurtServer(level, source, amount);
             if (accepted) {
                 hits.add(new Hit(level().getGameTime(), amount, hurtTime, position()));
             }

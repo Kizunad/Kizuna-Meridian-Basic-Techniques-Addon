@@ -16,14 +16,14 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFail
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.animal.cow.Cow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
@@ -31,8 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 正式 Human 玩家、功法服务和 Damage Mixin 的联合验证。 */
-public final class BasicTechniquesGameTest implements FabricGameTest {
+public final class BasicTechniquesGameTest {
     private static final String PREFIX = "meridian_basic_techniques:";
     private static final long MILLIS_PER_TICK = 50;
     private static final int TICKS_PER_SECOND = 20;
@@ -64,7 +66,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
     private static final double BREATH_QI_COST = 10;
     private static final double BUFF_QI_COST = 15;
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void discoversCatalogAndLearnsEachIndependentVolume(GameTestHelper context) {
         // 清单发现使用 Fabric 加载器，学习提交使用正式在线玩家宿主。
         try (var fixture = prepared(context)) {
@@ -85,7 +87,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void allTechniquesStartAndPayWithOnlyTrueQi(GameTestHelper context) {
         // 内腔只留真炁，三式均须经正式玩家宿主起手，并只扣声明的整式费用。
         var costs = Map.of("breath", BREATH_QI_COST, "light_step", BUFF_QI_COST, "charge", BUFF_QI_COST);
@@ -113,7 +115,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         context.succeed();
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = CHARGE_TEST_TICKS)
+    @GameTest(maxTicks = CHARGE_TEST_TICKS)
     public void chargeCurveChangesHumanStrengthAndSameSwordDamage(GameTestHelper context) {
         // 两个玩家同步持同一型号剑，消除相同做功疲劳对曲线倍率的干扰。
         var boosted = prepared(context);
@@ -142,7 +144,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void lightStepGrantsQuietStatusInsteadOfImmediateImpulse(GameTestHelper context) {
         // 施放输入不再直接推人；两种请求都在起手结束得到相同的轻身状态。
         var right = prepared(context);
@@ -154,7 +156,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         start(context, forward, "light_step", Vec3.ZERO);
         later(context, STEP_TICKS, List.of(right, forward), () -> {
             try (right; forward) {
-                var effect = BuiltInRegistries.MOB_EFFECT.get(new ResourceLocation(PREFIX + "light_body"));
+                var effect = BuiltInRegistries.MOB_EFFECT.get(Identifier.parse(PREFIX + "light_body")).orElseThrow();
                 for (var fixture : List.of(right, forward)) {
                     var status = fixture.player.getEffect(effect);
                     context.assertTrue(status != null && !status.isVisible() && status.isAmbient(),
@@ -167,7 +169,7 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = BREATH_TEST_TICKS)
+    @GameTest(maxTicks = BREATH_TEST_TICKS)
     public void breathAcceleratesIdleArmFatigueRecovery(GameTestHelper context) {
         // 两具正式身体施加相同做功，只有一具接受调息，比较权威组织疲劳差值。
         var boosted = prepared(context);
@@ -265,12 +267,12 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
 
     private static double strike(GameTestHelper context, BasicTestPlayer fixture) {
         // 每次使用新的无护甲牛，避免无敌帧、旧伤和目标抗性影响实伤。
-        Cow target = EntityType.COW.create(context.getLevel());
+        Cow target = EntityTypes.COW.create(context.getLevel(), EntitySpawnReason.COMMAND);
         if (target == null) {
             throw new IllegalStateException("无法创建伤害目标");
         }
         target.setNoAi(true /* aiDisabled */);
-        target.moveTo(fixture.player.getX(), fixture.player.getY(), fixture.player.getZ() + 1, 0, 0);
+        target.snapTo(fixture.player.getX(), fixture.player.getY(), fixture.player.getZ() + 1, 0, 0);
         context.getLevel().addFreshEntity(target);
         float before = target.getHealth();
         fixture.player.attack(target);
@@ -340,6 +342,6 @@ public final class BasicTechniquesGameTest implements FabricGameTest {
 
     private static long now(BasicTestPlayer fixture) {
         // 功法与身体共用主世界累计 tick 时钟。
-        return fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK;
+        return fixture.player.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK;
     }
 }

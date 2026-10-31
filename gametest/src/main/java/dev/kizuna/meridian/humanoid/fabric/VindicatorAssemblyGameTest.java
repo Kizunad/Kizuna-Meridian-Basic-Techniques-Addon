@@ -7,36 +7,34 @@ import dev.kizuna.meridian.humanoid.server.HumanoidVariant;
 import dev.kizuna.meridian.protocol.BodyProtobuf;
 import dev.kizuna.meridian.protocol.pb.BodyMessages.Realm;
 import dev.kizuna.meridian.technique.server.TechniqueState;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.AfterBatch;
-import net.minecraft.gametest.framework.BeforeBatch;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.animal.Cow;
-import net.minecraft.world.entity.monster.Vindicator;
+import net.minecraft.world.entity.animal.cow.Cow;
+import net.minecraft.world.entity.monster.illager.Vindicator;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.Vec3;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 
 /** 全部宿主同服时，只学破门卷的真炁卫道士由类人大脑起手劈门式并影响玩家和木门。 */
-public final class VindicatorAssemblyGameTest implements FabricGameTest {
-    private static final String PLAYER_BATCH = "assembly-player";
-    private static final String DOOR_BATCH = "assembly-mob-griefing";
+public final class VindicatorAssemblyGameTest {
+    /** 两个批次环境都在批次前只发破门卷、批次后换回启动配置，见 {@link BasicTestEnvironments}。 */
+    private static final String PLAYER_BATCH = "meridian_basic_techniques_test:assembly_player";
+    private static final String DOOR_BATCH = "meridian_basic_techniques_test:assembly_mob_griefing";
     private static final String CLEAVE = "meridian_door_breaker:cleave";
     private static final int TEST_TIMEOUT = 2600;
     private static final int JOIN_READY_TICKS = 65;
@@ -49,31 +47,7 @@ public final class VindicatorAssemblyGameTest implements FabricGameTest {
     private static final double FULL_KNOCKBACK_RESISTANCE = 1;
     private static final float PLAYER_YAW = 180;
 
-    @BeforeBatch(batch = PLAYER_BATCH)
-    public void beforePlayerBatch(ServerLevel world) {
-        // 玩家用例只发破门卷，大脑只在破门式里选。
-        DoorBreakerOnlyVolumes.install();
-    }
-
-    @AfterBatch(batch = PLAYER_BATCH)
-    public void afterPlayerBatch(ServerLevel world) {
-        // 后续批次用启动配置。
-        DoorBreakerOnlyVolumes.restore();
-    }
-
-    @BeforeBatch(batch = DOOR_BATCH)
-    public void beforeDoorBatch(ServerLevel world) {
-        // 劈门用例同样只发破门卷。
-        DoorBreakerOnlyVolumes.install();
-    }
-
-    @AfterBatch(batch = DOOR_BATCH)
-    public void afterDoorBatch(ServerLevel world) {
-        // 后续批次用启动配置。
-        DoorBreakerOnlyVolumes.restore();
-    }
-
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT, batch = PLAYER_BATCH)
+    @GameTest(maxTicks = TEST_TIMEOUT, environment = PLAYER_BATCH)
     public void trueQiVindicatorBrainCastsDoorBreakerAgainstPlayer(GameTestHelper context) {
         // 真实玩家脱离登录保护后成为目标，大脑起手劈门式，观察 Human 健康宿主实际扣血。
         // 大脑按权重抽式，劈门式之前的打击两击就能把玩家打死，所以劈门式起手前玩家无敌。
@@ -81,7 +55,7 @@ public final class VindicatorAssemblyGameTest implements FabricGameTest {
         Vindicator mob = generated(context, "player");
         var player = fixture.player();
         Vec3 position = mob.position().add(0, 0, TARGET_DISTANCE);
-        player.moveTo(position.x, position.y, position.z, PLAYER_YAW, 0);
+        player.snapTo(position.x, position.y, position.z, PLAYER_YAW, 0);
         player.setGameMode(GameType.SURVIVAL);
         durable(player);
         player.getAbilities().invulnerable = true;
@@ -109,19 +83,19 @@ public final class VindicatorAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = TEST_TIMEOUT, batch = DOOR_BATCH)
+    @GameTest(maxTicks = TEST_TIMEOUT, environment = DOOR_BATCH)
     public void trueQiVindicatorBrainCleaveBreaksDoorWithMobGriefing(GameTestHelper context) {
         // 大脑起手劈门式后才在它面前放门，避免关闭的门先遮挡视线。
         Vindicator mob = generated(context, "door");
         Cow target = target(context, mob);
         var world = context.getLevel();
         var server = world.getServer();
-        var griefing = world.getGameRules().getRule(GameRules.RULE_MOBGRIEFING);
-        boolean original = griefing.get();
-        griefing.set(true /* value */, server);
+        var rules = world.getGameRules();
+        boolean original = rules.get(GameRules.MOB_GRIEFING);
+        rules.set(GameRules.MOB_GRIEFING, true /* value */, server);
         var stage = new HumanoidTestStage(context, () -> {
             // 恢复规则并移除实体，防止其他整合用例继承全局设置。
-            griefing.set(original, server);
+            rules.set(GameRules.MOB_GRIEFING, original, server);
             mob.discard();
             target.discard();
         });
@@ -154,10 +128,10 @@ public final class VindicatorAssemblyGameTest implements FabricGameTest {
         if (stale != null) {
             stale.discard();
         }
-        Vindicator mob = EntityType.VINDICATOR.create(world);
+        Vindicator mob = EntityTypes.VINDICATOR.create(world, EntitySpawnReason.COMMAND);
         mob.setUUID(id);
         Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(ORIGIN, ORIGIN, ORIGIN)));
-        mob.moveTo(position.x, position.y, position.z, 0, 0);
+        mob.snapTo(position.x, position.y, position.z, 0, 0);
         mob.setNoAi(true /* aiDisabled */);
         mob.setOnGround(true /* onGround */);
         mob.setPersistenceRequired();
@@ -178,9 +152,9 @@ public final class VindicatorAssemblyGameTest implements FabricGameTest {
 
     private static Cow target(GameTestHelper context, Vindicator mob) {
         // 卫道士正南两格不动的牛，承受打击而不反击。
-        Cow cow = EntityType.COW.create(context.getLevel());
+        Cow cow = EntityTypes.COW.create(context.getLevel(), EntitySpawnReason.COMMAND);
         Vec3 position = mob.position().add(0, 0, TARGET_DISTANCE);
-        cow.moveTo(position.x, position.y, position.z, 0, 0);
+        cow.snapTo(position.x, position.y, position.z, 0, 0);
         cow.setNoAi(true /* aiDisabled */);
         cow.setSilent(true /* silent */);
         durable(cow);

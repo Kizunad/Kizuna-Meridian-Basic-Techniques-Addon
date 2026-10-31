@@ -12,16 +12,15 @@ import dev.kizuna.meridian.technique.server.TechniqueService;
 import dev.kizuna.meridian.technique.server.TechniqueState;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.cow.Cow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -33,8 +32,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
+
 /** 正式卷轴经战斗协议施放，验证整套装配中的世界效果和 Damage 接线。 */
-public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
+public final class PlayerCombatAssemblyGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
     private static final int PLAYER_HEIGHT = 2;
     private static final int CAST_ACCEPT_TICKS = 2;
@@ -55,13 +56,13 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     private static final int SILENCE_TICKS = 70;
     private static final int SOUND_TEST_TICKS = 120;
     /** 同批并行的测试相距只有几格，会听到彼此的功法声音；数声音的测试单独一个批次。 */
-    private static final String SOUND_BATCH = "cleave-stagger-sound";
+    private static final String SOUND_BATCH = "meridian_basic_techniques_test:cleave_stagger_sound";
     private static final long STAGGER_MILLIS = 500;
     private static final double FULL_SPEED = 1;
     /** 不在服务端注册表里的声音事件，模拟纯数据功法书在自己客户端资源里声明的声音。 */
     private static final String INLINE_SOUND = "meridian_basic_techniques:test.inline_hum";
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void combatProtocolCleaveBreaksWoodenDoorAndWearsIronAxe(GameTestHelper context) {
         // 生存玩家读卷后发正式战斗载荷，门与耐久都等待真实施放时钟推进。
         var fixture = prepared(context);
@@ -87,14 +88,14 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void combatProtocolKnockDamagesMobThroughMuscleRules(GameTestHelper context) {
         // 原始钝击剂量与护甲前肌肉倍率分开核对，目标仍进入原版实际扣血链。
         var fixture = prepared(context);
-        var target = new ObservedCow(fixture.player.serverLevel());
+        var target = new ObservedCow(fixture.player.level());
         double initialStrength = strength(fixture);
         Vec3 position = fixture.player.position().add(0, 0, TARGET_DISTANCE);
-        target.moveTo(position.x, position.y, position.z, 0, 0);
+        target.snapTo(position.x, position.y, position.z, 0, 0);
         target.setNoAi(true /* aiDisabled */);
         target.setNoGravity(true /* noGravity */);
         target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(TARGET_HEALTH);
@@ -119,7 +120,7 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = SOUND_TEST_TICKS, batch = SOUND_BATCH)
+    @GameTest(maxTicks = SOUND_TEST_TICKS, environment = SOUND_BATCH)
     public void staggerInCleaveWarmupSilencesTheRemainingSounds(GameTestHelper context) {
         // 起手与踏步声照常响；起手中被僵直打断后，劈砍、命中与收势声都不再下发。
         var fixture = prepared(context);
@@ -151,7 +152,7 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         });
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void soundOutsideTheRegistryIsSentInlineWithItsId(GameTestHelper context) {
         // 未注册的声音照常下发：不按注册表编号，而是随包带上原 ID，客户端有该资源就能播放。
         try (var fixture = new BasicTestPlayer(context)) {
@@ -203,7 +204,7 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
         var fixture = PlayerAssemblyGameTest.prepared(context);
         PlayerAssemblyGameTest.learnScroll(context, fixture, PREFIX + "upper");
         Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(1, PLAYER_HEIGHT, 1)));
-        fixture.player.moveTo(position.x, position.y, position.z, 0, 0);
+        fixture.player.snapTo(position.x, position.y, position.z, 0, 0);
         fixture.player.setGameMode(GameType.SURVIVAL);
         fixture.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
         fixture.player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
@@ -219,7 +220,7 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
     private static double strength(BasicTestPlayer fixture) {
         // 等待起手期间没有其他做功；使用扣账前倍率，目标 damage 入口已在出手上下文内部。
         var body = fixture.body();
-        body.settle(fixture.player.getServer().overworld().getGameTime() * MILLIS_PER_TICK);
+        body.settle(fixture.player.level().getServer().overworld().getGameTime() * MILLIS_PER_TICK);
         var muscle = DamagePreferences.parse("hp_per_vanilla_hp = 1").muscle();
         return muscle.plan(BodyProtobuf.toMessage(body.snapshot()),
                 MuscleRules.Arm.RIGHT, MuscleRules.Grip.MAIN_HAND).coefficient();
@@ -249,16 +250,16 @@ public final class PlayerCombatAssemblyGameTest implements FabricGameTest {
 
         private ObservedCow(ServerLevel world) {
             // 观察入口剂量但保持牛的原版无护甲防御链。
-            super(EntityType.COW, world);
+            super(EntityTypes.COW, world);
         }
 
         @Override
-        public boolean hurt(DamageSource source, float amount) {
-            // 只记录剂量与类型，保持原版扣血及 Damage 的肌肉缩放路径。
+        public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+            // 只记录剂量与类型，保持原版扣血及 Damage 的肌肉缩放路径；26.2 服务端受击入口是 hurtServer。
             hits++;
             dose += amount;
-            damageType = source.typeHolder().unwrapKey().orElseThrow().location().toString();
-            return super.hurt(source, amount);
+            damageType = source.typeHolder().unwrapKey().orElseThrow().identifier().toString();
+            return super.hurtServer(level, source, amount);
         }
     }
 }

@@ -1,7 +1,7 @@
 # 安装与宿主接入
 
 将 `fabric/build/libs/kizuna-meridian-basic-techniques-addon-fabric-0.1.0-SNAPSHOT.jar` 装在服务端和客户端。
-硬依赖功法库 `meridian_technique` 与 Human `meridian_human_host`，Java 17、Minecraft 1.20.1。
+硬依赖功法库 `meridian_technique` 与 Human `meridian_human_host`，Java 25、Minecraft 26.2。
 本仓依赖功法库工作区中的清单发现、书卷与卷轴公开接口；该接口相对早期 89e37ec 已更新。
 不修改依赖仓源码，不安装已取消的试玩目录。
 

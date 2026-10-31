@@ -4,6 +4,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Mob;
 
 /** 一个类人用例的延迟步骤：任何一步失败都先清理在线玩家、实体和全局规则，保留原始失败原因。 */
 final class HumanoidTestStage {
@@ -19,6 +20,16 @@ final class HumanoidTestStage {
     void later(int ticks, Runnable action) {
         // 固定延迟后执行。
         context.runAfterDelay(ticks, () -> guarded(action));
+    }
+
+    void beforeDecision(Mob mob, Runnable action) {
+        // 类人大脑按实体 ID 错相决策；等到它下次决策的前一 tick 再执行，下一 tick 先由大脑看到这一步的结果。
+        int interval = HumanoidBrain.config().schedule().decisionIntervalTicks();
+        if (Math.floorMod(mob.tickCount + 1L + mob.getId(), interval) == 0) {
+            guarded(action);
+            return;
+        }
+        context.runAfterDelay(1, () -> beforeDecision(mob, action));
     }
 
     void await(int ticks, BooleanSupplier condition, Supplier<String> failure, Runnable next) {

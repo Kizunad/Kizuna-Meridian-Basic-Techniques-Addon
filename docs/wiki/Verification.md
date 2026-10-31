@@ -33,7 +33,8 @@ GameTest 位于 `gametest/src/main/java`：真实清单发现与按卷学习、�
 - `trueQiVindicatorBrainCleaveBreaksDoorWithMobGriefing`：同样只发破门卷，大脑起手劈门式后才放置木门，
   `mobGriefing` 开启时上下半都被劈开，生物铁斧不磨损。
 - 大脑按权重抽式，两个用例都在 2400 tick 内轮询到劈门式起手为止；卫道士用按用例名生成的固定 UUID，同一世界里抽样可重复。
-  目标不受击退，留在长起手距离内；牛加高血量，玩家在劈门式起手前开能力无敌，免得先出的其他式经 Human 身体把它打死。
+  目标不受击退，留在长起手距离内；牛加高血量，玩家在劈门式起手前由 Fabric 伤害许可事件挡掉伤害，
+  免得先出的其他式经 Human 身体把它打死。
 
 `HumanoidBrainPlayerGameTest` 覆盖类人大脑对真实玩家的反应：
 
@@ -113,6 +114,7 @@ GameTest 只做 26.2 改名与接口替换，断言不变：
 - `batch` 改为测试环境：叩门五例、破门僵直声音一例、类人大脑三例各引用一个空环境；
   卫道士两例的批次前后钩子改为自定义环境类型 `meridian_basic_techniques_test:door_breaker_only`
   （`BasicTestEnvironments`），批次前只发破门卷、批次后换回启动配置，两例仍各占一个批次。
+  测试环境注册表按对象身份拒收重复值，所以该类型是记录，每份环境数据解出一个新实例，不用枚举单例。
 - `BasicTestPlayer` 经功法库 testFixtures 的 `TestPlayers.logIn` 登录；功法库的公共记录连接不能扩展，
   本仓保留自己的记录连接，以便按世界 tick 记下声音包。战斗按键与跃步请求按通道构造载荷，
   所以 `gametest` 编译期加 Framework 的 Fabric 模组（`compileOnly`，运行时由完整装配提供）。
@@ -122,8 +124,29 @@ GameTest 只做 26.2 改名与接口替换，断言不变：
   `moveTo` 改 `snapTo`，`mobGriefing` 改 `GameRules.MOB_GRIEFING`，区块坐标改 `ChunkPos.containing`，
   移动包补 `horizontalCollision`，延迟失败改用 `context.assertionException`。
 
-命令：`./gradlew test build :gametest:compileJava`；`python3 scripts/check_docs.py`；`python3 scripts/check_data.py`；
-`git diff --check`。
+首次用完整装配运行时又按 26.2 行为改了八处测试侧写法，断言不变：
 
-结果：JUnit 11/11（`BasicCatalogTest` 5、`LeapTargetTest` 5、`CatalogLanguageTest` 1），GameTest 源集编译通过，
-文档检查通过（7 个页面），数据检查通过。GameTest 尚未运行：迁移链迁完后用正式完整装配统一跑。
+- 26.2 的 `ItemStack.use` 把立即生效的成功结果重新包成带手持物的成功对象，学卷交互改为判断不挥手的服务端成功，
+  不再比对 `InteractionResult.CONSUME` 的对象身份。
+- 26.2 分批发区块，客户端回执前不发下一批，未发到区块里的实体不向玩家同步，叩门用例收不到受击通知；
+  记录连接收到批次结束包时像真实客户端那样回执。区块发到后，其中的实体要等玩家跨区段或发来移动包才重算配对，
+  测试玩家不发移动包，所以回执后按移动包的服务端处理重算一次；1.20.1 发区块时就同步其中的实体。
+- 26.2 的生物不把能力无敌的玩家设为目标，卫道士对玩家一例改由 Fabric 伤害许可事件在劈门式起手前挡掉玩家受伤。
+- 原版村民向身边空手的玩家展示交易时会清空主手，持斧村民还手一例在玩家出拳前不开 AI，与卫道士突进一例同一写法；
+  开 AI 到大脑首次接手之间原版日常仍会跑，大脑按实体 ID 错相决策，所以出拳放在大脑下次决策的前一 tick。
+- 26.2 的 GameTest 场地随机放在百万格外，声音包坐标先转单精度再除，那里的误差可到半格以上；
+  叩门声音比对的位置容差每轴加上该处半个单精度间隔。
+- 26.2 没有常驻的出生区块，登录点所在区块可能未加载，生成在那里的实体查不到、功法宿主认领不到；
+  叩门真炁卫道士一例先把玩家挪到出手者的位置，再在玩家脚下生成。
+- 26.2 的空结构外围是屏障墙：游炁村民撤退一例改在结构南侧生成，北面留出撤退的地方；
+  并像还手一例那样出拳前不开 AI，免得原版闲逛事先走远、撤退拉不开要求的距离。
+- 完整装配里类人大脑也管卫道士，大脑先看到目标就由它指挥跃步，自动追击按设计让位；两边按实体 ID 错相决策，
+  谁先看到目标随整批用例的生成次序变化。轻身卫道士追击一例关着 AI 等到自动追击决策相位的前一 tick，
+  再开 AI 并给目标。
+
+命令：`./gradlew test build :gametest:runGametest`（每次用新运行目录）；`python3 scripts/check_docs.py`；
+`python3 scripts/check_data.py`；`git diff --check`。
+
+结果：JUnit 11/11（`BasicCatalogTest` 5、`LeapTargetTest` 5、`CatalogLanguageTest` 1）；
+完整装配 GameTest 38/38（本仓 37 例加原版 `minecraft:always_pass`），连续三次新运行目录都全过；
+文档检查通过（7 个页面），数据检查通过。

@@ -7,9 +7,11 @@ import dev.kizuna.meridian.humanoid.server.HumanoidVariant;
 import dev.kizuna.meridian.protocol.BodyProtobuf;
 import dev.kizuna.meridian.protocol.pb.BodyMessages.Realm;
 import dev.kizuna.meridian.technique.server.TechniqueState;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -27,7 +29,9 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.Vec3;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** 全部宿主同服时，只学破门卷的真炁卫道士由类人大脑起手劈门式并影响玩家和木门。 */
@@ -46,11 +50,15 @@ public final class VindicatorAssemblyGameTest {
     private static final double TARGET_HEALTH = 1000;
     private static final double FULL_KNOCKBACK_RESISTANCE = 1;
     private static final float PLAYER_YAW = 180;
+    /** 劈门式起手前不受伤害的玩家。 */
+    private static final Set<UUID> SHIELDED = new HashSet<>();
+    private static boolean shieldInstalled;
 
     @GameTest(maxTicks = TEST_TIMEOUT, environment = PLAYER_BATCH)
     public void trueQiVindicatorBrainCastsDoorBreakerAgainstPlayer(GameTestHelper context) {
         // 真实玩家脱离登录保护后成为目标，大脑起手劈门式，观察 Human 健康宿主实际扣血。
-        // 大脑按权重抽式，劈门式之前的打击两击就能把玩家打死，所以劈门式起手前玩家无敌。
+        // 大脑按权重抽式，劈门式之前的打击两击就能把玩家打死，所以劈门式起手前挡掉玩家受到的伤害。
+        // 26.2 的生物不把能力无敌的玩家设为目标，不能再用能力无敌保护。
         var fixture = new BasicTestPlayer(context);
         Vindicator mob = generated(context, "player");
         var player = fixture.player();
@@ -58,10 +66,11 @@ public final class VindicatorAssemblyGameTest {
         player.snapTo(position.x, position.y, position.z, PLAYER_YAW, 0);
         player.setGameMode(GameType.SURVIVAL);
         durable(player);
-        player.getAbilities().invulnerable = true;
+        shield(player);
         var stage = new HumanoidTestStage(context, () -> {
-            // 断线并移除卫道士，防止其他整合用例继承目标。
+            // 断线并移除卫道士，撤掉伤害保护，防止其他整合用例继承目标。
             mob.discard();
+            SHIELDED.remove(player.getUUID());
             fixture.close();
         });
         stage.later(JOIN_READY_TICKS, () -> {
@@ -72,7 +81,7 @@ public final class VindicatorAssemblyGameTest {
                         context.assertTrue(HumanoidTechniqueHost.isCasting(mob)
                                         && mob.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0,
                                 "施放未保留近战互斥与主动移动");
-                        player.getAbilities().invulnerable = false;
+                        SHIELDED.remove(player.getUUID());
                         float health = player.getHealth();
                         stage.await(HIT_OBSERVE_TICKS, () -> player.getHealth() < health,
                                 () -> "大脑劈门式没有经过 Human 与 Damage 扣除玩家生命", () -> {
@@ -160,6 +169,16 @@ public final class VindicatorAssemblyGameTest {
         durable(cow);
         context.getLevel().addFreshEntity(cow);
         return cow;
+    }
+
+    private static void shield(ServerPlayer player) {
+        // 伤害许可只装一次，只挡登记过的玩家，其他用例和正式宿主照常受伤。
+        if (!shieldInstalled) {
+            ServerLivingEntityEvents.ALLOW_DAMAGE.register(
+                    (entity, source, amount) -> !SHIELDED.contains(entity.getUUID()));
+            shieldInstalled = true;
+        }
+        SHIELDED.add(player.getUUID());
     }
 
     private static void durable(LivingEntity target) {

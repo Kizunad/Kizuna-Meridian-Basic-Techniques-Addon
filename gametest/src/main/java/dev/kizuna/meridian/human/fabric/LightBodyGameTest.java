@@ -301,11 +301,26 @@ public final class LightBodyGameTest {
         var mob = context.getLevel().getEntitiesOfClass(Vindicator.class,
                 new AABB(spawnPos).inflate(1), entity -> true).stream().findFirst().orElseThrow();
         mob.setPos(origin);
-        mob.setNoAi(false /* aiDisabled */);
+        mob.setNoAi(true /* aiDisabled */);
         mob.setOnGround(true /* onGround */);
         fixture.player.setPos(origin.add(0, 0, LEAP_DISTANCE));
-        mob.setTarget(fixture.player);
         TechniqueStatusBenefits.apply(mob, registered().benefit());
+        awaitChasePhase(context, fixture, mob, origin);
+    }
+
+    private static void awaitChasePhase(GameTestHelper context, BasicTestPlayer fixture, Vindicator mob,
+                                        Vec3 origin) {
+        // 完整装配里类人大脑也管卫道士：大脑先看到目标就由它指挥跃步，自动追击按设计让位。
+        // 两边按实体 ID 错相决策，实体 ID 随整批用例的生成次序变化，谁先看到目标也随之变化；
+        // 所以关着 AI 等到自动追击决策相位的前一 tick，再开 AI 并给目标，让自动追击先看到目标。
+        int phase = registered().benefit().getLeap().getAiDecisionTicks();
+        if (Math.floorMod(mob.tickCount + 1 + mob.getId(), phase) != 0) {
+            context.runAfterDelay(1, () -> awaitChasePhase(context, fixture, mob, origin));
+            return;
+        }
+        mob.setNoAi(false /* aiDisabled */);
+        mob.setOnGround(true /* onGround */);
+        mob.setTarget(fixture.player);
         awaitMobLeap(context, fixture, mob, origin, 0);
     }
 

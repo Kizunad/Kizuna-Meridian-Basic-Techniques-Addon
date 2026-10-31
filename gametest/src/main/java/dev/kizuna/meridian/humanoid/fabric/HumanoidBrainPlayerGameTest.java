@@ -40,6 +40,8 @@ public final class HumanoidBrainPlayerGameTest {
     private static final int JOIN_READY_TICKS = 65;
     private static final int REACTION_TICKS = 400;
     private static final BlockPos SUBJECT_POS = new BlockPos(2, 0, 2);
+    /** 撤退一例的村民站在 8×8 空结构南侧，北面留出撤退的地方；26.2 的结构外围是屏障墙。 */
+    private static final BlockPos RETREAT_POS = new BlockPos(4, 0, 5);
     private static final double HIT_DISTANCE = 2;
     private static final double ASSAULT_DISTANCE = 6;
     private static final double RETREAT_GAIN = 2;
@@ -52,7 +54,10 @@ public final class HumanoidBrainPlayerGameTest {
             environment = "meridian_basic_techniques_test:humanoid_brain_player_retreat")
     public void wanderingVillagerHitByPlayerRetreats(GameTestHelper context) {
         // 只会基础三卷的游炁村民被玩家打一拳后由大脑撤退拉开。
-        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.WANDERING_QI, "player-retreat");
+        // 挨打前不开 AI：原版村民会闲逛，26.2 的结构外围是屏障墙，事先走远了撤退就拉不开要求的距离。
+        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.WANDERING_QI, "player-retreat",
+                RETREAT_POS);
+        villager.setNoAi(true /* aiDisabled */);
         var fixture = new BasicTestPlayer(context);
         ServerPlayer player = standing(fixture, villager, HIT_DISTANCE);
         var stage = new HumanoidTestStage(context, () -> {
@@ -63,6 +68,7 @@ public final class HumanoidBrainPlayerGameTest {
         var track = new Track(villager, player);
         stage.later(JOIN_READY_TICKS, () -> {
             double start = villager.distanceTo(player);
+            villager.setNoAi(false /* aiDisabled */);
             player.attack(villager);
             stage.await(REACTION_TICKS,
                     () -> track.observe().sawAny(RETREATS) && villager.distanceTo(player) > start + RETREAT_GAIN,
@@ -74,8 +80,12 @@ public final class HumanoidBrainPlayerGameTest {
             environment = "meridian_basic_techniques_test:humanoid_brain_player_fight_back")
     public void armedTrueQiVillagerHitByPlayerFightsBack(GameTestHelper context) {
         // 学了破门上卷、持斧的真炁村民被玩家打一拳后还手，破门式经 Human 扣玩家生命。
-        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.TRUE_QI, "player-fight-back");
+        // 挨打前不开 AI：原版村民向身边空手的玩家展示交易时会清空主手，斧子没了就不再还手。
+        // 开 AI 到大脑接手之间原版日常仍会跑，所以出拳放在大脑下次决策的前一 tick，下一 tick 先由大脑接手。
+        Villager villager = spawn(context, EntityTypes.VILLAGER, HumanoidTier.TRUE_QI, "player-fight-back",
+                SUBJECT_POS);
         villager.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
+        villager.setNoAi(true /* aiDisabled */);
         HumanoidTechniqueHost.prepare(villager);
         TechniqueFabric.service().learn(villager.getUUID(), DOOR_BREAKER_PREFIX + "upper");
         var fixture = new BasicTestPlayer(context);
@@ -86,20 +96,22 @@ public final class HumanoidBrainPlayerGameTest {
             fixture.close();
         });
         var track = new Track(villager, player);
-        stage.later(JOIN_READY_TICKS, () -> {
+        stage.later(JOIN_READY_TICKS, () -> stage.beforeDecision(villager, () -> {
             float health = player.getHealth();
+            villager.setNoAi(false /* aiDisabled */);
             player.attack(villager);
             stage.await(REACTION_TICKS,
                     () -> track.observe().castAny(DOOR_BREAKER_PREFIX) && player.getHealth() < health,
                     () -> "被打的真炁村民没有还手伤到玩家：" + track, stage::finish);
-        });
+        }));
     }
 
     @GameTest(maxTicks = TEST_TIMEOUT,
             environment = "meridian_basic_techniques_test:humanoid_brain_player_assault")
     public void trueQiVindicatorLeapsToStandingPlayerAndStrikes(GameTestHelper context) {
         // 持斧真炁卫道士对六格外静立的玩家先轻身，跃到玩家面前一到两格，再出破门打击式。
-        Vindicator vindicator = spawn(context, EntityTypes.VINDICATOR, HumanoidTier.TRUE_QI, "player-assault");
+        Vindicator vindicator = spawn(context, EntityTypes.VINDICATOR, HumanoidTier.TRUE_QI, "player-assault",
+                SUBJECT_POS);
         vindicator.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_AXE));
         vindicator.setNoAi(true /* aiDisabled */);
         var fixture = new BasicTestPlayer(context);
@@ -125,15 +137,15 @@ public final class HumanoidBrainPlayerGameTest {
     }
 
     private static <T extends Mob> T spawn(GameTestHelper context, EntityType<T> type, HumanoidTier tier,
-                                                 String name) {
-        // 固定 UUID 让选式种子可重复；GameTest 世界跨运行保留，上次超时留下的同 UUID 实体先移除。
+                                                 String name, BlockPos at) {
+        // 在结构内给定格生成；固定 UUID 让选式种子可重复；GameTest 世界跨运行保留，上次超时留下的同 UUID 实体先移除。
         UUID id = UUID.nameUUIDFromBytes(("humanoid-brain-player/" + name).getBytes(StandardCharsets.UTF_8));
         Entity stale = context.getLevel().getEntity(id);
         if (stale != null) {
             stale.discard();
         }
         T mob = type.create(context.getLevel(), EntitySpawnReason.COMMAND);
-        Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(SUBJECT_POS));
+        Vec3 position = Vec3.atBottomCenterOf(context.absolutePos(at));
         mob.setUUID(id);
         mob.snapTo(position.x, position.y, position.z, 0, 0);
         mob.setPersistenceRequired();

@@ -162,13 +162,16 @@ public final class PlayerAssemblyGameTest {
 
     static void learnScroll(GameTestHelper context, BasicTestPlayer fixture, String volume) {
         // 创造玩家使用正式物品且保持数量，学习结果由独立断言检查。
+        // 26.2 的 ItemStack.use 把立即生效的成功结果重新包成带手持物的成功对象，所以按不挥手的服务端成功比较，
+        // 不比对象身份。
         var item = TechniqueScrollItems.scrolls().get(Identifier.parse(volume + "_scroll"));
         context.assertTrue(item != null, "卷轴未登记：" + volume);
         var stack = new ItemStack(item, STACK_SIZE);
         fixture.player.setItemInHand(InteractionHand.MAIN_HAND, stack);
         InteractionResult result = fixture.player.gameMode.useItem(
                 fixture.player, fixture.player.level(), stack, InteractionHand.MAIN_HAND);
-        context.assertTrue(result == InteractionResult.CONSUME, "卷轴交互失败：" + volume);
+        context.assertTrue(result instanceof InteractionResult.Success success
+                && success.swingSource() == InteractionResult.SwingSource.NONE, "卷轴交互失败：" + volume);
         context.assertTrue(stack.getCount() == STACK_SIZE, "创造模式错误消耗卷轴");
     }
 

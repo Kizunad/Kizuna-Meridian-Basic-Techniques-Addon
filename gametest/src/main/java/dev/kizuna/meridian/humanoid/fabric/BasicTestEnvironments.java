@@ -25,10 +25,12 @@ public final class BasicTestEnvironments implements ModInitializer {
                 DoorBreakerOnly.CODEC);
     }
 
-    private enum DoorBreakerOnly implements TestEnvironmentDefinition<Unit> {
-        INSTANCE;
-
-        private static final MapCodec<DoorBreakerOnly> CODEC = MapCodec.unit(INSTANCE);
+    /**
+     * 一份只发破门卷的环境数据。玩家与开启破坏两份数据引用同一类型，各自是一个批次；
+     * 注册表按对象身份拒收重复值，所以每份数据解出一个新实例，不能共用枚举单例。
+     */
+    private record DoorBreakerOnly() implements TestEnvironmentDefinition<Unit> {
+        private static final MapCodec<DoorBreakerOnly> CODEC = MapCodec.unit(DoorBreakerOnly::new);
 
         @Override
         public Unit setup(ServerLevel level) {

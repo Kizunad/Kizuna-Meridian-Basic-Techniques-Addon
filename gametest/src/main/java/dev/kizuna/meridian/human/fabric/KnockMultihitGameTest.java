@@ -153,7 +153,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
         // 指定档位仅用于准备，自动学卷和初始真元沿用公开管理入口。
         var source = fixture.player.createCommandSourceStack().withPermission(COMMAND_PERMISSION);
         int result = fixture.player.getServer().getCommands().performPrefixedCommand(source,
-                "meridian humanoid summon vindicator true_qi");
+                "meridian humanoid spawn vindicator true_qi");
         context.assertTrue(result > 0, "无法生成真炁卫道士");
         var mob = context.getLevel().getEntitiesOfClass(Vindicator.class,
                 fixture.player.getBoundingBox().inflate(1), entity -> true)
@@ -187,7 +187,7 @@ public final class KnockMultihitGameTest implements FabricGameTest {
         TechniqueFabric.service().learn(actor.getUUID(), PREFIX + "upper");
         var viewer = fixture.player;
         int watched = viewer.getServer().getCommands().performPrefixedCommand(
-                viewer.createCommandSourceStack().withPermission(COMMAND_PERMISSION), "meridian_debug damage watch on");
+                viewer.createCommandSourceStack().withPermission(COMMAND_PERMISSION), "meridian watch damage on");
         context.assertTrue(watched == 1, "伤害日志命令失败");
         if (mode == Mode.SPILLOVER) {
             destroyArm(context, trial.target());

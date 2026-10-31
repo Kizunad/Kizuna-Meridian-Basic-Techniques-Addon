@@ -298,7 +298,7 @@ public final class LightBodyGameTest implements FabricGameTest {
         var source = fixture.player.createCommandSourceStack().withPermission(PERMISSION)
                 .withPosition(Vec3.atBottomCenterOf(spawnPos));
         int result = fixture.player.getServer().getCommands().performPrefixedCommand(source,
-                "meridian humanoid summon vindicator true_qi");
+                "meridian humanoid spawn vindicator true_qi");
         context.assertTrue(result > 0, "无法生成真炁卫道士：" + fixture.connection.packets.stream()
                 .filter(ClientboundSystemChatPacket.class::isInstance)
                 .map(ClientboundSystemChatPacket.class::cast)

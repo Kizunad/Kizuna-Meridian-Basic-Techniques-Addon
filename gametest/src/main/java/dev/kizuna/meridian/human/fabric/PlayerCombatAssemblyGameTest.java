@@ -39,8 +39,8 @@ public final class PlayerCombatAssemblyGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
     private static final int PLAYER_HEIGHT = 2;
     private static final int CAST_ACCEPT_TICKS = 2;
-    private static final int CLEAVE_OBSERVE_TICKS = 75;
-    private static final int KNOCK_OBSERVE_TICKS = 40;
+    private static final int CLEAVE_OBSERVE_TICKS = 43;
+    private static final int KNOCK_OBSERVE_TICKS = 31;
     private static final int CLEAVE_WEAR = 3;
     private static final double TARGET_DISTANCE = 2;
     private static final double TARGET_HEALTH = 100;
@@ -50,9 +50,9 @@ public final class PlayerCombatAssemblyGameTest {
     private static final double MULTIHIT_FATIGUE_RATIO = 0.05;
     private static final double EPSILON = 0.001;
     private static final long MILLIS_PER_TICK = 50;
-    /** 破门起手 3200 毫秒，第 30 tick 时 850 毫秒的踏步声已响、劈砍声未到。 */
-    private static final int STAGGER_TICKS = 30;
-    /** 打断后再等 70 tick，越过原定 4500 毫秒的收势声。 */
+    /** 破门起手 1600 毫秒，第 16 tick 时 450 毫秒的踏步声已响、劈砍声未到。 */
+    private static final int STAGGER_TICKS = 16;
+    /** 打断后再等 70 tick，越过原定 2900 毫秒的收势声。 */
     private static final int SILENCE_TICKS = 70;
     private static final int SOUND_TEST_TICKS = 120;
     /** 同批并行的测试相距只有几格，会听到彼此的功法声音；数声音的测试单独一个批次。 */

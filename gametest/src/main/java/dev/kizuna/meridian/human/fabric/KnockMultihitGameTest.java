@@ -53,9 +53,9 @@ import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOU
 public final class KnockMultihitGameTest {
     private static final String PREFIX = "meridian_door_breaker:";
     private static final String ARM = "left_upper_arm";
-    private static final List<Long> HIT_TICKS = List.of(18L, 25L, 34L);
-    private static final int OBSERVE_TICKS = 38;
-    private static final int LEAVE_TICKS = 20;
+    private static final List<Long> HIT_TICKS = List.of(9L, 16L, 25L);
+    private static final int OBSERVE_TICKS = 29;
+    private static final int LEAVE_TICKS = 11;
     private static final int MAX_SEED = 100_000;
     private static final PermissionSet COMMAND_PERMISSION = LevelBasedPermissionSet.GAMEMASTER;
     private static final int HURT_DURATION = 10;

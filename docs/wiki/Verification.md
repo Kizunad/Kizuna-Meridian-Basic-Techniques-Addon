@@ -31,7 +31,7 @@ GameTest 位于 `gametest/src/main/java`：真实清单发现与按卷学习、�
 - `trueQiVindicatorBrainCastsDoorBreakerAgainstPlayer`：真炁身体按只发破门卷的批次配置学卷，类人大脑起手劈门式，
   施放保留近战互斥与主动移动，通过 Human/Damage 扣除在线玩家生命。
 - `trueQiVindicatorBrainCleaveBreaksDoorWithMobGriefing`：同样只发破门卷，大脑起手劈门式后才放置木门，
-  `mobGriefing` 开启时上下半都被劈开，生物铁斧不磨损。
+  `mob_griefing` 开启时上下半都被劈开，生物铁斧不磨损。
 - 大脑按权重抽式，两个用例都在 2400 tick 内轮询到劈门式起手为止；卫道士用按用例名生成的固定 UUID，同一世界里抽样可重复。
   目标不受击退，留在长起手距离内；牛加高血量，玩家在劈门式起手前由 Fabric 伤害许可事件挡掉伤害，
   免得先出的其他式经 Human 身体把它打死。

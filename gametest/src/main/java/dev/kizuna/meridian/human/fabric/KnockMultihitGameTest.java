@@ -70,10 +70,6 @@ public final class KnockMultihitGameTest {
     private static final long MILLIS_PER_TICK = 50;
     /** 声音与命中一样允许一 tick 调度差。 */
     private static final long TICK_TOLERANCE = 1;
-    /** 声音包坐标是 1/8 格定点数，三轴截断误差合计不超过 0.25 格。 */
-    private static final double SOUND_POSITION_TOLERANCE = 0.25;
-    /** 声音包坐标的定点倍数。 */
-    private static final double SOUND_FIXED_POINT_SCALE = 8;
     /** 声音包按 16 格范围下发，同批并行的测试相距只有几格，会互相听到；逐条数声音的测试各占一个批次。 */
     private static final String MAIN_HAND_BATCH = "meridian_basic_techniques_test:knock_sound_main_hand";
     private static final String OFF_HAND_BATCH = "meridian_basic_techniques_test:knock_sound_off_hand";
@@ -427,22 +423,10 @@ public final class KnockMultihitGameTest {
             var packet = heard.packet();
             return heard.soundId().equals(soundId)
                     && Math.abs(heard.tick() - tick) <= TICK_TOLERANCE
-                    && heard.position().distanceTo(position) <= positionTolerance()
+                    && heard.position().distanceTo(position) <= BasicTestPlayer.HeardSound.positionTolerance(position)
                     && packet.getSource() == SoundSource.PLAYERS
                     && Math.abs(packet.getVolume() - volume) < EPSILON
                     && Math.abs(packet.getPitch() - pitch) <= jitter + EPSILON;
-        }
-
-        private double positionTolerance() {
-            // 26.2 的 GameTest 场地随机放在百万格外，声音包读出坐标时先把定点数转成单精度再除，
-            // 那里的单精度间隔已到半格以上；每轴再加上该处半个单精度间隔。近原点时这一项可以忽略。
-            return SOUND_POSITION_TOLERANCE + singlePrecisionError(position.x) + singlePrecisionError(position.y)
-                    + singlePrecisionError(position.z);
-        }
-
-        private static double singlePrecisionError(double coordinate) {
-            // 定点数转单精度最多差半个间隔，再按定点倍数换回格。
-            return Math.ulp((float) (coordinate * SOUND_FIXED_POINT_SCALE)) / 2 / SOUND_FIXED_POINT_SCALE;
         }
     }
 

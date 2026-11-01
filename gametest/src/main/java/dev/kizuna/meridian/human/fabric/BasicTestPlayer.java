@@ -157,13 +157,31 @@ public final class BasicTestPlayer implements AutoCloseable {
 
     /** 收到声音包时的世界 tick 与原始包。 */
     record HeardSound(long tick, ClientboundSoundPacket packet) {
+        /** 声音包坐标是 1/8 格定点数，三轴截断误差合计不超过 0.25 格。 */
+        private static final double FIXED_POINT_TOLERANCE = 0.25;
+        /** 声音包坐标的定点倍数。 */
+        private static final double FIXED_POINT_SCALE = 8;
+
+        /** 声音包坐标与期望位置之间允许的距离（格）。 */
+        static double positionTolerance(Vec3 expected) {
+            // 26.2 的 GameTest 场地随机放在 ±1.5e7 格以内，声音包读出坐标时先把定点数转成单精度再除，
+            // 百万格外的单精度间隔已到半格以上；每轴再加上该处半个单精度间隔。近原点时这一项可以忽略。
+            return FIXED_POINT_TOLERANCE + singlePrecisionError(expected.x) + singlePrecisionError(expected.y)
+                    + singlePrecisionError(expected.z);
+        }
+
+        private static double singlePrecisionError(double coordinate) {
+            // 定点数转单精度最多差半个间隔，再按定点倍数换回格。
+            return Math.ulp((float) (coordinate * FIXED_POINT_SCALE)) / 2 / FIXED_POINT_SCALE;
+        }
+
         String soundId() {
             // 未注册的事件随包内联下发，同样带着目录里写的 ID。
             return packet.getSound().value().location().toString();
         }
 
         Vec3 position() {
-            // 声音包坐标按 1/8 格定点数传输，比较时要留同等容差。
+            // 声音包坐标按 1/8 格定点数传输，比较时用 positionTolerance 留出容差。
             return new Vec3(packet.getX(), packet.getY(), packet.getZ());
         }
     }

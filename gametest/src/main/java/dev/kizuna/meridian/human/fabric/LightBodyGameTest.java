@@ -47,8 +47,6 @@ public final class LightBodyGameTest {
     private static final int HALF_TURN_DEGREES = 180;
     private static final long MILLIS_PER_TICK = 50;
     private static final double POSITION_TOLERANCE = 0.5;
-    /** 声音包坐标是 1/8 格定点数，三轴截断误差合计不超过 0.25 格。 */
-    private static final double SOUND_POSITION_TOLERANCE = 0.25;
     private static final double EPSILON = 0.000001;
     private static final AtomicInteger arenas = new AtomicInteger();
 
@@ -482,8 +480,10 @@ public final class LightBodyGameTest {
                 .toList();
         context.assertTrue(heard.size() == 1, "起跳声条数错误：" + heard.size());
         var sound = heard.get(0);
+        // 远场的声音包坐标经单精度换算，容差与叩门声共用同一算法。
         double offset = sound.position().distanceTo(takeoff);
-        context.assertTrue(offset <= SOUND_POSITION_TOLERANCE, "起跳声偏离起跳点：" + offset);
+        context.assertTrue(offset <= BasicTestPlayer.HeardSound.positionTolerance(takeoff),
+                "起跳声偏离起跳点：" + offset);
         double loudness = Math.abs(sound.packet().getVolume() - TechniqueSoundCues.volume(cue));
         context.assertTrue(loudness < EPSILON, "起跳声音量与目录不符：" + sound.packet().getVolume());
         double detune = Math.abs(sound.packet().getPitch() - TechniqueSoundCues.pitch(cue));

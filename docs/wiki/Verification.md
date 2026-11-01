@@ -46,7 +46,7 @@ GameTest 位于 `gametest/src/main/java`：真实清单发现与按卷学习、�
 `KnockMultihitGameTest` 覆盖玩家主副手、类人出手、18/25/34 tick 三次真实受伤与闪红、
 实际伤害聊天包、逐击溢出蔓延、一次耐久以及首击后目标离开导致后两击落空。
 五个叩门用例同时核对声音：`BasicTestPlayer` 记下发给玩家的每个声音包，按 Door-Breaker 目录逐条比对
-ID、时刻（±1 tick）、位置、`PLAYERS` 类别、音量与音调抖动区间；施放者声音在出手者处，目标声音只对应实际命中记录，
+ID、时刻（±1 tick）、位置、类别（玩家出手 `PLAYERS`、卫道士出手 `HOSTILE`）、音量与音调抖动区间；施放者声音在出手者处，目标声音只对应实际命中记录，
 目标离开后落空的两击没有命中声，每条恰好听到一次。
 `staggerInCleaveWarmupSilencesTheRemainingSounds` 在破门起手中途僵直，此前的起手声照常响，之后的劈砍、命中与收势声都不再下发；
 `LightBodyGameTest` 的三格台阶用例断言起跳 tick 在起跳点恰好一次 `entity.rabbit.jump`；

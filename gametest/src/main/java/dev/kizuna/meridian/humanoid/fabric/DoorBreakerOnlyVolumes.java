@@ -1,7 +1,7 @@
 package dev.kizuna.meridian.humanoid.fabric;
 
-import dev.kizuna.meridian.core.Realm;
 import dev.kizuna.meridian.humanoid.server.HumanoidBrainConfig;
+import dev.kizuna.meridian.humanoid.server.HumanoidTier;
 import dev.kizuna.meridian.humanoid.server.VolumeTable;
 
 import java.util.EnumMap;
@@ -37,10 +37,10 @@ final class DoorBreakerOnlyVolumes {
 
     private static VolumeTable doorBreakerVolumes(VolumeTable table) {
         // 物种与档位不变，每档只留破门目录的卷。
-        var species = new HashMap<String, Map<Realm, List<VolumeTable.Grant>>>();
+        var species = new HashMap<String, Map<HumanoidTier, List<VolumeTable.Grant>>>();
         table.species().forEach((entityId, tiers) -> {
-            var kept = new EnumMap<Realm, List<VolumeTable.Grant>>(Realm.class);
-            tiers.forEach((realm, grants) -> kept.put(realm, doorBreakerGrants(grants)));
+            var kept = new EnumMap<HumanoidTier, List<VolumeTable.Grant>>(HumanoidTier.class);
+            tiers.forEach((tier, grants) -> kept.put(tier, doorBreakerGrants(grants)));
             species.put(entityId, kept);
         });
         return new VolumeTable(species);

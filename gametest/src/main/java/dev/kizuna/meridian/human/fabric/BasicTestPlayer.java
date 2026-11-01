@@ -15,18 +15,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
-import net.minecraft.network.protocol.game.ClientboundChunkBatchFinishedPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
-import net.minecraft.network.protocol.game.ServerboundChunkBatchReceivedPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.PlayerChunkSender;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
@@ -129,28 +125,15 @@ public final class BasicTestPlayer implements AutoCloseable {
 
         @Override
         public void send(Packet<?> packet, ChannelFutureListener listener, boolean flush) {
-            // 26.2 的各个发送入口都汇到这里；保留原始包供断言，并像传输成功那样执行回调。
+            // 26.2 的各个发送入口都汇到这里；保留原始包供断言，区块批次与功法库夹具一样回执，
+            // 并像传输成功那样执行回调。
             packets.add(packet);
             if (packet instanceof ClientboundSoundPacket sound) {
                 sounds.add(new HeardSound(clock.getAsLong(), sound));
             }
-            if (packet instanceof ClientboundChunkBatchFinishedPacket) {
-                acknowledgeChunkBatch();
-            }
+            TestPlayers.acknowledgeChunkBatch(this, packet);
             if (listener != null) {
                 completeSend(listener);
-            }
-        }
-
-        private void acknowledgeChunkBatch() {
-            // 26.2 分批发区块，客户端回执前不发下一批，未发到的区块里的实体也不向玩家同步；
-            // 这里像真实客户端那样收到批次结束就回执，按最大速率要下一批。
-            // 区块发到后，其中的实体要等玩家跨区段或发来移动包才重算配对；测试玩家不发移动包，
-            // 回执后按移动包的服务端处理重算一次。1.20.1 没有批次回执，发区块时就同步其中的实体。
-            if (getPacketListener() instanceof ServerGamePacketListenerImpl listener) {
-                listener.handleChunkBatchReceived(
-                        new ServerboundChunkBatchReceivedPacket(PlayerChunkSender.MAX_CHUNKS_PER_TICK));
-                listener.player.level().getChunkSource().move(listener.player);
             }
         }
 

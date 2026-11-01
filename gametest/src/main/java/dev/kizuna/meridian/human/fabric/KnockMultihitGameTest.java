@@ -312,17 +312,22 @@ public final class KnockMultihitGameTest {
 
     private static List<ExpectedSound> expectedSounds(Trial trial, List<TimedCue> cues, long started) {
         // 施放者声音对准出手者；目标声音逐一对应实际命中记录，没有命中的一击就不该出声。
+        // 声音类别跟出手者：玩家为 PLAYERS，卫道士是敌对生物，为 HOSTILE；目标声音也跟出手者。
         var expected = new ArrayList<ExpectedSound>();
         Vec3 caster = trial.actor().position();
+        SoundSource source = SoundSource.PLAYERS;
+        if (trial.mode() == Mode.MOB) {
+            source = SoundSource.HOSTILE;
+        }
         for (TimedCue timed : cues) {
             SoundCue cue = timed.cue();
             long tick = started + timed.ticks();
             if (cue.getAnchor() == SoundAnchor.CASTER) {
-                expected.add(ExpectedSound.of(tick, cue, caster));
+                expected.add(ExpectedSound.of(tick, cue, caster, source));
             } else {
                 for (Hit hit : trial.target().hits) {
                     if (Math.abs(hit.tick() - tick) <= TICK_TOLERANCE) {
-                        expected.add(ExpectedSound.of(hit.tick(), cue, hit.position()));
+                        expected.add(ExpectedSound.of(hit.tick(), cue, hit.position(), source));
                     }
                 }
             }
@@ -410,11 +415,11 @@ public final class KnockMultihitGameTest {
     private record Hit(long tick, float dose, int hurtTime, Vec3 position) { }
     private record TimedCue(long ticks, SoundCue cue) { }
 
-    private record ExpectedSound(long tick, String soundId, Vec3 position, double volume, double pitch,
-            double jitter) {
-        static ExpectedSound of(long tick, SoundCue cue, Vec3 position) {
+    private record ExpectedSound(long tick, String soundId, Vec3 position, SoundSource source, double volume,
+            double pitch, double jitter) {
+        static ExpectedSound of(long tick, SoundCue cue, Vec3 position, SoundSource source) {
             // 省略的音量与音调按功法库同一套默认值解析。
-            return new ExpectedSound(tick, cue.getSoundId(), position, TechniqueSoundCues.volume(cue),
+            return new ExpectedSound(tick, cue.getSoundId(), position, source, TechniqueSoundCues.volume(cue),
                     TechniqueSoundCues.pitch(cue), TechniqueSoundCues.pitchJitter(cue));
         }
 
@@ -424,7 +429,7 @@ public final class KnockMultihitGameTest {
             return heard.soundId().equals(soundId)
                     && Math.abs(heard.tick() - tick) <= TICK_TOLERANCE
                     && heard.position().distanceTo(position) <= BasicTestPlayer.HeardSound.positionTolerance(position)
-                    && packet.getSource() == SoundSource.PLAYERS
+                    && packet.getSource() == source
                     && Math.abs(packet.getVolume() - volume) < EPSILON
                     && Math.abs(packet.getPitch() - pitch) <= jitter + EPSILON;
         }

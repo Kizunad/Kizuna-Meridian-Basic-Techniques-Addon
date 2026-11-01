@@ -138,7 +138,8 @@ public final class HumanoidBrainPlayerGameTest {
 
     private static <T extends Mob> T spawn(GameTestHelper context, EntityType<T> type, HumanoidTier tier,
                                                  String name, BlockPos at) {
-        // 在结构内给定格生成；固定 UUID 让选式种子可重复；GameTest 世界跨运行保留，上次超时留下的同 UUID 实体先移除。
+        // 在结构内给定格生成；固定 UUID 让选式种子可重复。GameTest 每局新建世界，只有在保留下来的世界里重跑时
+        // 才会碰上同 UUID 的实体，先移除，否则加入世界会失败。
         UUID id = UUID.nameUUIDFromBytes(("humanoid-brain-player/" + name).getBytes(StandardCharsets.UTF_8));
         Entity stale = context.getLevel().getEntity(id);
         if (stale != null) {

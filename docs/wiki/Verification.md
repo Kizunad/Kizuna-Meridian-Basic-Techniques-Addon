@@ -13,7 +13,7 @@ git diff --check
 JUnit 位于 `verification/src/test/java`：正式纯数据包、目录校验、独立书卷、表现生命周期，
 以及游炁/真炁在未开、手开、足开、全开身体上的绑定；三式费用须为任意属性、最低游离态匹配。
 GameTest 位于 `gametest/src/main/java`：真实清单发现与按卷学习、正式 Human 身体的蓄力曲线及同剑实伤、
-轻身状态、按键跃步与真实碰撞落地、调息对普通做功产生的手臂疲劳的恢复。
+轻身状态、按键跃步与真实碰撞落地、调息对普通做功产生的双臂与双腿疲劳的恢复。
 `allTechniquesStartAndPayWithOnlyTrueQi` 通过管理员库存入口让内腔只含真炁，
 验证三式均能起手，分别扣除总额 10、15、15 元，剩余真炁的相态与实际密度保持不变。
 
@@ -87,7 +87,27 @@ Windows 实机的卷轴操作、动画、美术和完整试玩装配由整合任
 
 - `discoversCatalogAndLearnsEachIndependentVolume`：清单发现，独立卷累计学习三式。
 - `chargeCurveChangesHumanStrengthAndSameSwordDamage`：峰值、回落、虚脱和到期，有效力量与同型号铁剑实伤比率。
-- `breathAcceleratesIdleArmFatigueRecovery`：普通做功产生的双臂疲劳恢复对照。
+- `breathAcceleratesIdleArmAndLegFatigueRecovery`：普通做功产生的双臂、双腿疲劳恢复对照，并检查生命、组织 HP 和真元。
+
+`StatusBuffGameTest` 覆盖三状态的六种添加顺序、轻身能力筛选、同种刷新、起手打断不退费、
+峰值牛奶清除、乏力段命令清除、自定义时长、高 amplifier、拒绝短覆盖、无限时长规范、无身体实体、
+重登相位、维度切换、死亡复活、实体卸载加载、自然到期及容量不足时原版图标回滚。
+内存网络连接显式执行原版玩家 tick，确保药水剩余时长真实递减。
+`StatusMigrationGameTest` 用迁移前目录实际施放并保存 Human 身体，再由新目录重登，
+验证旧曲线、剩余冷却和到期后的再次施放。历史 txtpb 只存在于 GameTest 资源中。
+`-PgametestRunDir=build/status-buffs-gametest` 可指定独立运行目录，避免复用其他测试的旧配置。
+
+功法库 `TechniqueStatusTissuesTest` 使用真实 Framework `handleActivity` 验证容量拒绝、revision 冲突、
+原子刷新、重复清除、长时曲线分段、旧曲线不可提前删除与目录能力校验。
+客户端验收入口为功法库 `:fabric:runStatusClientTest -PscrollFullAssembly`，读取独立测试世界
+`fabric/build/statusclienttest/saves/status-buffs-test`，输出昼夜、GUI scale 2/4 的原版 HUD/状态列表截图及牛奶清除截图。
+测试资源和 Java 均不进入 Basic 正式包。
+`runStatusRestartClientTest` 分别使用 `-PstatusRestart=save`、`restore` 启动两个独立 JVM，
+验证正常停服后的原版剩余时长、总时长元数据、乏力相位和清除。
+
+2026-11-05 Linux 验收使用与 BS3D 匹配的临时 Weights、Vanilla HEAD 产物，未修改依赖仓库源码。
+HUD 三图正常；整合装配的 BS3D 背包布局将第三项原版状态裁到屏幕外，完整状态列表验收尚有此限制。
+详细截图、命令和版本记录见本次交接报告。
 - `lightStepGrantsQuietStatusInsteadOfImmediateImpulse`：起手后给予轻身、无粒子、显示图标，施放本身不产生冲量。
 
 `LeapTargetTest` 读取正式目录，检查直线预算 7 格、起跳速度 12 m/s、6–30 tick 与停用字段为空，

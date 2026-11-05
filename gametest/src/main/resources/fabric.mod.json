@@ -15,6 +15,8 @@
       "dev.kizuna.meridian.human.fabric.KnockMultihitGameTest",
       "dev.kizuna.meridian.human.fabric.LegTechniqueGameTest",
       "dev.kizuna.meridian.human.fabric.LightBodyGameTest",
+      "dev.kizuna.meridian.human.fabric.StatusBuffGameTest",
+      "dev.kizuna.meridian.human.fabric.StatusMigrationGameTest",
       "dev.kizuna.meridian.humanoid.fabric.VindicatorAssemblyGameTest",
       "dev.kizuna.meridian.humanoid.fabric.HumanoidBrainPlayerGameTest"
     ]

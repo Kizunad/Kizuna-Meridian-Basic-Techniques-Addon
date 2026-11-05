@@ -2,10 +2,22 @@
 
 ## 来源与范围
 
-全部主体由 CPA cliproxy 的 `gpt-image-2.5-flare` 生成，`quality=high`、PNG、
+既有卷轴、背景与技能栏主体由 CPA cliproxy 的 `gpt-image-2.5-flare` 生成，`quality=high`、PNG、
 `style=none`，提示词明确指定 Minecraft 像素风。未使用其他后端或 Claude 生图额度。
 调用复用 Bong `scripts/images/gen.py` 的 `generate_cliproxy_images` 图片接口；
 任务专用参数位于交接目录，未改生成器默认值和全局配置。
+
+调息与蓄力的新增 **状态图标** 使用已交付的 `gpt-image-2.5-sunburst` CPA Images API 成品。
+来源交接目录为 `Kizuna-remote-session/handoff/basic-techniques-status-buffs-art/`，
+其中 `breath_input.md`、`charge_input.md` 保存实际提示词，`*_sunburst_retry2.log` 保存成功模型请求，
+`sunburst/` 保存 1024×1024 RGBA 原稿，`assets.json` 保存 SHA-256。
+本仓逐字节接入 `ready/breath.png` 与 `ready/charge.png`，没有重新生成或替换技能栏图。
+成品为 18×18 RGBA、透明底、无框；最近邻缩小、alpha 阈值 128、12 色无抖动量化。
+
+| 状态 | 游戏资源 | 图形 |
+|---|---|---|
+| 调息 | [breath.png](../../fabric/src/main/resources/assets/meridian_basic_techniques/textures/mob_effect/breath.png) | 玉绿、米白的人形四肢与回旋气息 |
+| 蓄力 | [charge.png](../../fabric/src/main/resources/assets/meridian_basic_techniques/textures/mob_effect/charge.png) | 赭金、朱砂的握拳与聚力线 |
 
 先由 flare、sunburst 分别生成木门背景与叩门图标。最终选 flare：中央正文区平均灰度
 228.51（sunburst 227.22），两者都接近浅纸；同一最近邻 32×32 采样下，

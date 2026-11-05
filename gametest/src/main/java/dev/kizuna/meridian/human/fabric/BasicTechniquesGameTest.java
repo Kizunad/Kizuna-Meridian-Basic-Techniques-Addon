@@ -58,7 +58,7 @@ public final class BasicTechniquesGameTest {
     private static final double VERTICAL_METERS_PER_SECOND = 4;
     private static final double HORIZONTAL_SPEED = HORIZONTAL_METERS_PER_SECOND / TICKS_PER_SECOND;
     private static final double VERTICAL_SPEED = VERTICAL_METERS_PER_SECOND / TICKS_PER_SECOND;
-    private static final double FATIGUE_POWER = 100;
+    private static final double FATIGUE_POWER_RATIO = 0.2;
     private static final double FATIGUE_SECONDS = 2;
     private static final double GAS_DENSITY = 0.2;
     private static final double GAS_FILL_RATIO = 0.5;
@@ -170,20 +170,31 @@ public final class BasicTechniquesGameTest {
     }
 
     @GameTest(maxTicks = BREATH_TEST_TICKS)
-    public void breathAcceleratesIdleArmFatigueRecovery(GameTestHelper context) {
-        // 两具正式身体施加相同做功，只有一具接受调息，比较权威组织疲劳差值。
+    public void breathAcceleratesIdleArmAndLegFatigueRecovery(GameTestHelper context) {
+        // 两具正式身体四肢分别做功，只有一具接受调息，比较权威组织疲劳且不增加生命或真元。
         var boosted = prepared(context);
         var control = prepared(context);
         TechniqueFabric.service().learn(boosted.player.getUUID(), PREFIX + "breath_volume");
         start(context, boosted, "breath", Vec3.ZERO);
         later(context, BREATH_TICKS, List.of(boosted, control), () -> {
-            exertArm(context, boosted);
-            exertArm(context, control);
+            exertLimbs(context, boosted);
+            exertLimbs(context, control);
+            var before = boosted.body().snapshot();
             later(context, RECOVERY_TICKS, List.of(boosted, control), () -> {
                 try (boosted; control) {
                     boosted.body().settle(now(boosted));
                     control.body().settle(now(control));
-                    context.assertTrue(armFatigue(boosted) < armFatigue(control), "调息未加速手臂疲劳恢复");
+                    for (String tag : List.of("human:arm_muscle", "human:leg_muscle")) {
+                        context.assertTrue(limbFatigue(boosted, tag) < limbFatigue(control, tag),
+                                "调息未加速四肢疲劳恢复：" + tag);
+                    }
+                    var after = boosted.body().snapshot();
+                    context.assertTrue(before.partStates().equals(after.partStates()), "调息改变了部位生命");
+                    context.assertTrue(after.totalQi() <= before.totalQi() + QI_EPSILON,
+                            "调息恢复了真元：" + before.totalQi() + " -> " + after.totalQi());
+                    context.assertTrue(before.tissueStates().stream().map(tissue -> tissue.hp()).toList()
+                            .equals(after.tissueStates().stream().map(tissue -> tissue.hp()).toList()),
+                            "调息恢复了结构伤");
                     context.succeed();
                 }
             });
@@ -282,22 +293,13 @@ public final class BasicTechniquesGameTest {
         return loss;
     }
 
-    private static void exertArm(GameTestHelper context, BasicTestPlayer fixture) {
+    private static void exertLimbs(GameTestHelper context, BasicTestPlayer fixture) {
         // 疲劳只能由 Framework 普通做功入口产生，不直接改写组织状态。
         var host = fixture.body();
         long now = now(fixture);
         host.settle(now);
         var body = host.snapshot();
-        var arm = body.structure().tissues().stream()
-                .filter(item -> item.tags().stream().anyMatch(tag -> tag.value().equals("human:arm_muscle")))
-                .findFirst().orElseThrow();
-        var load = ExertTissue.newBuilder()
-                .setTissueId(arm.id().value())
-                .setForceNewtons(0)
-                .setPowerWatts(FATIGUE_POWER)
-                .setDurationSeconds(FATIGUE_SECONDS)
-                .build();
-        var loads = ExertTissues.newBuilder().addLoads(load).build();
+        var loads = limbLoads(body);
         var command = BodyCommand.newBuilder()
                 .setBodyId(body.id().value())
                 .setExpectedRevision(body.revision())
@@ -311,11 +313,30 @@ public final class BasicTechniquesGameTest {
         context.assertTrue(host.applyExertion(now, request).hasCommandCommitted(), "做功失败");
     }
 
-    private static double armFatigue(BasicTestPlayer fixture) {
-        // 只比较双臂疲劳总量，腿部和呼吸肌不混入恢复判定。
+    private static ExertTissues limbLoads(dev.kizuna.meridian.core.BodySnapshot body) {
+        // 按各肌肉基础功率的相同比例收费，覆盖双臂双腿且不压垮较小的前臂肌。
+        var loads = ExertTissues.newBuilder();
+        for (var tissue : body.structure().tissues()) {
+            if (tissue.tags().stream().noneMatch(tag -> tag.value().equals("human:arm_muscle")
+                    || tag.value().equals("human:leg_muscle"))) {
+                continue;
+            }
+            var load = ExertTissue.newBuilder()
+                    .setTissueId(tissue.id().value())
+                    .setForceNewtons(0)
+                    .setPowerWatts(tissue.capacity().burstWatts() * FATIGUE_POWER_RATIO)
+                    .setDurationSeconds(FATIGUE_SECONDS)
+                    .build();
+            loads.addLoads(load);
+        }
+        return loads.build();
+    }
+
+    private static double limbFatigue(BasicTestPlayer fixture, String tag) {
+        // 分别比较双臂与双腿，不把呼吸肌混入恢复判定。
         var body = BodyProtobuf.toMessage(fixture.body().snapshot());
         return body.getStructure().getTissuesList().stream()
-                .filter(item -> item.getTagsList().contains("human:arm_muscle"))
+                .filter(item -> item.getTagsList().contains(tag))
                 .mapToDouble(definition -> body.getTissueStatesList().stream()
                         .filter(state -> state.getId().equals(definition.getId()))
                         .findFirst().orElseThrow().getFatigue()).sum();

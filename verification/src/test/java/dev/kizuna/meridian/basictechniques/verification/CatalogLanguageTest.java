@@ -37,6 +37,11 @@ public final class CatalogLanguageTest {
                     assertFalse(presentation.getDisplayName().isBlank());
                     assertFalse(presentation.getDisplayName().contains(":"));
                     assertTrue(presentation.getDescription().length() > presentation.getDisplayName().length());
+                    for (var effect : definition.getEffectsList()) {
+                        if (effect.hasStatusBenefit()) {
+                            assertName(language, TechniqueScrollText.key("effect", effect.getStatusBenefit().getId()));
+                        }
+                    }
                 }
             }
         }

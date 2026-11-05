@@ -1,6 +1,7 @@
 plugins { id 'net.fabricmc.fabric-loom' }
 
 description = '独立 GameTest 装配，验证真实目录、按卷学习和原版数据注册表。'
+def gametestRunDirectory = providers.gradleProperty('gametestRunDir').getOrElse('build/gametest')
 
 dependencies {
     // 26.x 不混淆：直接用官方名编译，没有映射，模组依赖也不经重映射。
@@ -33,7 +34,7 @@ loom {
         gametest {
             server()
             name '基础功法数据 GameTest'
-            runDir 'build/gametest'
+            runDir gametestRunDirectory
             vmArg '-Dfabric-api.gametest'
             vmArg '-Dfabric-api.gametest.report-file=build/gametest-results.xml'
         }
@@ -44,7 +45,7 @@ tasks.named('runGametest') {
     doFirst {
         // 每局从空目录新建世界：GameTest 服务端按自带的平坦预设建世界，旧目录只会累积上一局的区块、实体、假玩家与模组存档。
         // 26.2 把生成设置与游戏规则拆到了 data/minecraft，只留 level.dat 会退回随机种子的默认地形，所以整个目录删掉。
-        file('build/gametest/world').deleteDir()
+        file("${gametestRunDirectory}/world").deleteDir()
     }
 }
 

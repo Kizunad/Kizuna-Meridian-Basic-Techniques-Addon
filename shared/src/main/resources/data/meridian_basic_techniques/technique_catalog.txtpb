@@ -91,30 +91,34 @@ definitions {
   }
   effects {
     at_millis: 1100
-    tissue_modifier {
-      slot_id: "arms"
-      curve { offset_millis: 0 value: 0 }
-      curve { offset_millis: 2000 value: 1 }
-      curve { offset_millis: 8000 value: 1 }
-      curve { offset_millis: 20000 value: 0 }
-      strength_peak { value: 1 unit: RATIO }
-      burst_peak { value: 1 unit: RATIO }
-      endurance_peak { value: 1 unit: RATIO }
-      recovery_peak { value: 4 unit: RATIO }
-    }
-  }
-  effects {
-    at_millis: 1100
-    tissue_modifier {
-      slot_id: "legs"
-      curve { offset_millis: 0 value: 0 }
-      curve { offset_millis: 2000 value: 1 }
-      curve { offset_millis: 8000 value: 1 }
-      curve { offset_millis: 20000 value: 0 }
-      strength_peak { value: 1 unit: RATIO }
-      burst_peak { value: 1 unit: RATIO }
-      endurance_peak { value: 1 unit: RATIO }
-      recovery_peak { value: 4 unit: RATIO }
+    status_benefit {
+      id: "meridian_basic_techniques:breath"
+      duration_millis: 20000
+      color_rgb: 7398305
+      tissue {
+        modifiers {
+          slot_id: "arms"
+          curve { offset_millis: 0 value: 0 }
+          curve { offset_millis: 2000 value: 1 }
+          curve { offset_millis: 8000 value: 1 }
+          curve { offset_millis: 20000 value: 0 }
+          strength_peak { value: 1 unit: RATIO }
+          burst_peak { value: 1 unit: RATIO }
+          endurance_peak { value: 1 unit: RATIO }
+          recovery_peak { value: 4 unit: RATIO }
+        }
+        modifiers {
+          slot_id: "legs"
+          curve { offset_millis: 0 value: 0 }
+          curve { offset_millis: 2000 value: 1 }
+          curve { offset_millis: 8000 value: 1 }
+          curve { offset_millis: 20000 value: 0 }
+          strength_peak { value: 1 unit: RATIO }
+          burst_peak { value: 1 unit: RATIO }
+          endurance_peak { value: 1 unit: RATIO }
+          recovery_peak { value: 4 unit: RATIO }
+        }
+      }
     }
   }
   effects {
@@ -140,7 +144,7 @@ definitions {
   presentation {
     icon_id: "meridian_basic_techniques:breath"
     display_name: "调息"
-    description: "调匀呼吸，逐渐提高双臂与双腿的恢复能力。适合交战间隙使用，起手期间受到足以造成僵直的伤害会中断。"
+    description: "调匀呼吸，获得20秒调息状态，加快空闲双臂与双腿的体力恢复。不治疗伤势、不恢复真元，适合交战间隙使用；起手受到足以造成僵直的伤害会中断。"
   }
 }
 
@@ -298,19 +302,26 @@ definitions {
   }
   effects {
     at_millis: 1600
-    tissue_modifier {
-      slot_id: "arms"
-      curve { offset_millis: 0 value: 0 }
-      curve { offset_millis: 1500 value: 1 }
-      curve { offset_millis: 2500 value: 1 }
-      curve { offset_millis: 5000 value: 0 }
-      curve { offset_millis: 6000 value: -0.5 }
-      curve { offset_millis: 9000 value: -0.5 }
-      curve { offset_millis: 10000 value: 0 }
-      strength_peak { value: 1.3 unit: RATIO }
-      burst_peak { value: 1.3 unit: RATIO }
-      endurance_peak { value: 1 unit: RATIO }
-      recovery_peak { value: 1 unit: RATIO }
+    status_benefit {
+      id: "meridian_basic_techniques:charge"
+      duration_millis: 10000
+      color_rgb: 13343551
+      tissue {
+        modifiers {
+          slot_id: "arms"
+          curve { offset_millis: 0 value: 0 }
+          curve { offset_millis: 1500 value: 1 }
+          curve { offset_millis: 2500 value: 1 }
+          curve { offset_millis: 5000 value: 0 }
+          curve { offset_millis: 6000 value: -0.5 }
+          curve { offset_millis: 9000 value: -0.5 }
+          curve { offset_millis: 10000 value: 0 }
+          strength_peak { value: 1.3 unit: RATIO }
+          burst_peak { value: 1.3 unit: RATIO }
+          endurance_peak { value: 1 unit: RATIO }
+          recovery_peak { value: 1 unit: RATIO }
+        }
+      }
     }
   }
   effects {
@@ -337,6 +348,6 @@ definitions {
   presentation {
     icon_id: "meridian_basic_techniques:charge"
     display_name: "蓄力"
-    description: "凝聚双臂的力量，短时间提高力量与爆发。效果退去后会有一段乏力期，适合在进攻前准备。"
+    description: "凝聚双臂力量，获得10秒蓄力状态：短暂提高力量与爆发，随后乏力，状态结束时恢复正常。适合在进攻前准备，起手受击可能中断。"
   }
 }

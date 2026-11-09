@@ -144,7 +144,7 @@ definitions {
   presentation {
     icon_id: "meridian_basic_techniques:breath"
     display_name: "调息"
-    description: "调匀呼吸，获得20秒调息状态，加快空闲双臂与双腿的体力恢复。不治疗伤势、不恢复真元，适合交战间隙使用；起手受到足以造成僵直的伤害会中断。"
+    description: "村外挑夫歇脚时常唱这支调子：“长路莫慌张，宽胸纳气凉。足下歇三刻，肚内自生阳。吐去千重浊，再挑百斤粮。”歌声落处，人已挑起扁担大步走远了。"
   }
 }
 
@@ -243,7 +243,7 @@ definitions {
   presentation {
     icon_id: "meridian_basic_techniques:light_step"
     display_name: "轻步"
-    description: "施展后一段时间内身轻如燕，可连续向准星处远跃，翻上两三格高处。潜行时仍可普通跳跃，腿脚乏力时需稍作休息。"
+    description: "山里的猎户在陡崖下守了三天，看那只白山羊跳石。山羊蹄尖只在凸起的石棱上轻轻一点，腰身一拱，借着石壁的反劲就翻上了两丈高的绝壁。猎户照着琢磨，收腹提胯，也学会了这一纵。"
   }
 }
 
@@ -348,6 +348,6 @@ definitions {
   presentation {
     icon_id: "meridian_basic_techniques:charge"
     display_name: "蓄力"
-    description: "凝聚双臂力量，获得10秒蓄力状态：短暂提高力量与爆发，随后乏力，状态结束时恢复正常。适合在进攻前准备，起手受击可能中断。"
+    description: "村东铁匠打铁，重锤举过头顶时，总要在半空停上半息，等沉肩把胸腹这口气沉实了，才砸向烧红的铁砧。后来有练把式的常站在炉边看，把这一顿学了去，成了发力前的根基。"
   }
 }

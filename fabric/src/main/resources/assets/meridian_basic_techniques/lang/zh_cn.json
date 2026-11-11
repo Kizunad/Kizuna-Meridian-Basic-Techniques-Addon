@@ -10,7 +10,11 @@
   "technique.meridian_basic_techniques.light_step": "轻步",
   "technique.meridian_basic_techniques.charge": "蓄力",
   "effect.meridian_basic_techniques.light_body": "轻身",
+  "effect.meridian_basic_techniques.light_body.legs": "两腿",
   "effect.meridian_basic_techniques.breath": "调息",
+  "effect.meridian_basic_techniques.breath.arms": "两臂",
+  "effect.meridian_basic_techniques.breath.legs": "两腿",
   "effect.meridian_basic_techniques.charge": "蓄力",
+  "effect.meridian_basic_techniques.charge.arms": "两臂",
   "message.meridian_basic_techniques.weak_legs": "腿脚乏力"
 }

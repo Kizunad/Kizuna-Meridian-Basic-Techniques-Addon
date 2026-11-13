@@ -4,12 +4,14 @@ import dev.kizuna.meridian.protocol.pb.BodyMessages.QiPhase;
 import dev.kizuna.meridian.protocol.pb.BodyMessages.Realm;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.PresentationDuration;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.QiCostMatching;
+import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.ScrollDrop;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.server.TechniqueBinder;
 import dev.kizuna.meridian.technique.server.TechniqueCatalogManifest;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.jar.JarFile;
 
 import static org.junit.Assert.assertEquals;
@@ -22,6 +24,10 @@ public final class BasicCatalogTest {
     private static final int STEP_MUSCLES = 6;
     private static final double STEP_TOTAL_POWER = 800;
     private static final double EPSILON = 0.000001;
+    private static final double SCROLL_DROP_CHANCE = 0.05;
+    private static final List<String> HUMANOIDS = List.of("minecraft:villager", "minecraft:wandering_trader",
+            "minecraft:pillager", "minecraft:vindicator", "minecraft:evoker", "minecraft:witch",
+            "minecraft:illusioner");
 
     @Test
     public void productionJarDeclaresCatalogAndContainsNoJava() throws Exception {
@@ -127,5 +133,20 @@ public final class BasicCatalogTest {
         }
         assertTrue(legs.getModuleIdsList().contains("left_gastrocnemius"));
         assertTrue(legs.getModuleIdsList().contains("right_gastrocnemius"));
+    }
+
+    @Test
+    public void everyVolumeDropsFromAllSevenHumanoidsAtALowerChance() throws Exception {
+        // 七种生人修成后都会这三卷，所以每卷向七种生人各声明一项；人人都会，概率占位比单种生人的功法低。
+        var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
+        for (var volume : registry.volumes()) {
+            List<String> entities = volume.getScrollDropsList().stream()
+                    .map(ScrollDrop::getEntityType)
+                    .toList();
+            assertEquals(volume.getId(), HUMANOIDS, entities);
+            for (ScrollDrop drop : volume.getScrollDropsList()) {
+                assertEquals(volume.getId(), SCROLL_DROP_CHANCE, drop.getChance(), 0);
+            }
+        }
     }
 }

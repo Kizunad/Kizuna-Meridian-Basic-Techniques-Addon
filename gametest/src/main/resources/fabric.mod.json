@@ -18,8 +18,10 @@
       "dev.kizuna.meridian.human.fabric.StatusBuffGameTest",
       "dev.kizuna.meridian.human.fabric.StatusMigrationGameTest",
       "dev.kizuna.meridian.humanoid.fabric.VindicatorAssemblyGameTest",
-      "dev.kizuna.meridian.humanoid.fabric.HumanoidBrainPlayerGameTest"
+      "dev.kizuna.meridian.humanoid.fabric.HumanoidBrainPlayerGameTest",
+      "dev.kizuna.meridian.humanoid.fabric.BasicScrollDropGameTest"
     ]
   },
-  "depends": {"fabric-api": "*", "meridian_technique": "*", "meridian_human_host": "*"}
+  "depends": {"fabric-api": "*", "meridian_technique": "*", "meridian_human_host": "*",
+    "meridian_humanoid_host": "*"}
 }

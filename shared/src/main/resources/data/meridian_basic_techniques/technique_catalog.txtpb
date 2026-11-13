@@ -8,18 +8,43 @@ volumes {
   book_id: "meridian_basic_techniques:basic"
   display_name: "调息卷"
   techniques { id: "meridian_basic_techniques:breath" version: 1 }
+  # 生存来源：七种生人修成游炁、真炁后都会这三卷（Threatening 学卷表），玩家亲手杀死时每卷各自掉；
+  # 人人都会、碰得多，所以概率比单种生人的功法低，占位 0.05。
+  scroll_drops { entity_type: "minecraft:villager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:wandering_trader" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:pillager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:vindicator" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:evoker" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:witch" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:illusioner" chance: 0.05 }
 }
 volumes {
   id: "meridian_basic_techniques:light_step_volume"
   book_id: "meridian_basic_techniques:basic"
   display_name: "轻步卷"
   techniques { id: "meridian_basic_techniques:light_step" version: 1 }
+  # 生存来源同调息卷：七种生人各自按 0.05 掉这一卷，概率占位。
+  scroll_drops { entity_type: "minecraft:villager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:wandering_trader" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:pillager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:vindicator" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:evoker" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:witch" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:illusioner" chance: 0.05 }
 }
 volumes {
   id: "meridian_basic_techniques:charge_volume"
   book_id: "meridian_basic_techniques:basic"
   display_name: "蓄力卷"
   techniques { id: "meridian_basic_techniques:charge" version: 1 }
+  # 生存来源同调息卷：七种生人各自按 0.05 掉这一卷，概率占位。
+  scroll_drops { entity_type: "minecraft:villager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:wandering_trader" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:pillager" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:vindicator" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:evoker" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:witch" chance: 0.05 }
+  scroll_drops { entity_type: "minecraft:illusioner" chance: 0.05 }
 }
 
 definitions {

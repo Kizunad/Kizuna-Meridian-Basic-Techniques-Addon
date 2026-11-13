@@ -170,3 +170,10 @@ GameTest 只做 26.2 改名与接口替换，断言不变：
 结果：JUnit 11/11（`BasicCatalogTest` 5、`LeapTargetTest` 5、`CatalogLanguageTest` 1）；
 完整装配 GameTest 38/38（本仓 37 例加原版 `minecraft:always_pass`），连续三次新运行目录都全过；
 文档检查通过（7 个页面），数据检查通过。
+
+## 2026-11-13：生存来源（掉卷）
+
+`BasicScrollDropGameTest.everyCultivatedHumanoidDropsTheBasicVolumesRarely` 用 Threatening 的生成命令生出七种游炁生人和一个凡人村民：
+七种都会基础三卷，各按自己的原版掉落表抽 1000 次玩家击杀，每卷掉 23～77 次（0.05 的正负四个标准差）；
+凡人一卷不会、一卷不掉；不是玩家打死的不掉。`BasicCatalogTest.everyVolumeDropsFromAllSevenHumanoidsAtALowerChance`
+另查三卷各向七种生人声明 0.05 的掉落。

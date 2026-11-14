@@ -19,5 +19,11 @@
   "effect.meridian_basic_techniques.breath.legs": "两腿",
   "effect.meridian_basic_techniques.charge": "蓄力",
   "effect.meridian_basic_techniques.charge.arms": "两臂",
-  "message.meridian_basic_techniques.weak_legs": "腿脚乏力"
+  "message.meridian_basic_techniques.weak_legs": "腿脚乏力",
+  "advancements.meridian_basic_techniques.cultivators.basic.title": "入门底子",
+  "advancements.meridian_basic_techniques.cultivators.basic.description": "歇步吐浊重拾气力，收腹提胯借势翻崖，沉肩闭气则挥臂更猛，三般粗浅底子皆通。",
+  "codex.intro.meridian_basic_techniques.basic": "挑夫歇脚纳气、猎户观羊跳绝壁、铁匠沉气打铁，走江湖安身立命的吐纳蓄劲底子。",
+  "codex.power.meridian_basic_techniques.breath_volume": "歇步宽胸纳气，长路奔波之后徐徐吐浊，两臂与两腿的疲惫自能飞快消解。",
+  "codex.power.meridian_basic_techniques.light_step_volume": "学来陡崖山羊的借力巧劲，蹄尖微点借反劲收腹一纵，便能跃上一人高崖。",
+  "codex.power.meridian_basic_techniques.charge_volume": "学铁匠举锤沉肩，把胸腹这口气沉实稳住，再挥臂出手力道暴涨、沉猛刚劲。"
 }

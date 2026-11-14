@@ -1,0 +1,23 @@
+{
+  "parent": "meridian_progression:cultivation/cultivators",
+  "display": {
+    "icon": {
+      "id": "meridian_basic_techniques:charge_volume_scroll"
+    },
+    "title": {
+      "translate": "advancements.meridian_basic_techniques.cultivators.basic.title"
+    },
+    "description": {
+      "translate": "advancements.meridian_basic_techniques.cultivators.basic.description"
+    },
+    "frame": "goal"
+  },
+  "criteria": {
+    "completed": {
+      "trigger": "meridian_technique:book_completed",
+      "conditions": {
+        "book": "meridian_basic_techniques:basic"
+      }
+    }
+  }
+}

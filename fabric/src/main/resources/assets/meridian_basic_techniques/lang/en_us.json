@@ -19,5 +19,11 @@
   "effect.meridian_basic_techniques.breath.legs": "Leg ",
   "effect.meridian_basic_techniques.charge": "Charge",
   "effect.meridian_basic_techniques.charge.arms": "Arm ",
-  "message.meridian_basic_techniques.weak_legs": "Your legs are too weak"
+  "message.meridian_basic_techniques.weak_legs": "Your legs are too weak",
+  "advancements.meridian_basic_techniques.cultivators.basic.title": "Rough Foundations",
+  "advancements.meridian_basic_techniques.cultivators.basic.description": "Catch your breath to shake off weariness, tuck the waist to vault cliffs, and sink the breath low to swing with crushing weight—the three crude rudiments, fully mastered.",
+  "codex.intro.meridian_basic_techniques.basic": "A porter catching his breath, a hunter watching mountain goats leap crags, a smith sinking his weight into the anvil—the bare foundation of breath and brace for wandering the realm.",
+  "codex.power.meridian_basic_techniques.breath_volume": "Halt your stride, open the chest, and draw in breath. After hard miles on the road, exhaling the stale air clears the ache from weary limbs in no time.",
+  "codex.power.meridian_basic_techniques.light_step_volume": "Borrowed from crag goats on sheer cliffs: a light tap off the stone, a tuck of the waist, and you spring clean over a ledge taller than a man.",
+  "codex.power.meridian_basic_techniques.charge_volume": "Learned from smiths raising heavy hammers: sink the shoulders, pack your breath deep in the gut, and the blow lands with brutal, unyielding weight."
 }

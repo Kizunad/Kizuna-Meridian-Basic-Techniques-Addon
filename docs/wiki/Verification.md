@@ -39,6 +39,8 @@ GameTest 位于 `gametest/src/main/java`：真实清单发现与按卷学习、�
 `HumanoidBrainPlayerGameTest` 覆盖类人大脑对真实玩家的反应：
 
 - `wanderingVillagerHitByPlayerRetreats`：只会基础三卷的游炁村民被玩家打一拳后撤退拉开。
+  这一批的环境是 `meridian_basic_techniques_test:basic_only`，学卷表每档只留基础功法的卷：
+  袖手拳往学卷表给村民登记了上卷，完整装配里的村民出生就会拳，被打会还手，不再是「只会基础三卷」。
 - `armedTrueQiVillagerHitByPlayerFightsBack`：学了破门上卷、持斧的真炁村民被打后还手，破门式扣玩家生命。
 - `trueQiVindicatorLeapsToStandingPlayerAndStrikes`：持斧真炁卫道士对六格外静立的玩家先轻步，跃到玩家面前一到两格，再出破门打击式。
 
@@ -135,6 +137,7 @@ GameTest 只做 26.2 改名与接口替换，断言不变：
   卫道士两例的批次前后钩子改为自定义环境类型 `meridian_basic_techniques_test:door_breaker_only`
   （`BasicTestEnvironments`），批次前只发破门卷、批次后换回启动配置，两例仍各占一个批次。
   测试环境注册表按对象身份拒收重复值，所以该类型是记录，每份环境数据解出一个新实例，不用枚举单例。
+  后来加了同一做法的 `basic_only`（只发基础功法的卷），两种类型共用 `OnlyVolumes`。
 - `BasicTestPlayer` 经功法库 testFixtures 的 `TestPlayers.logIn` 登录；功法库的公共记录连接不能扩展，
   本仓保留自己的记录连接，以便按世界 tick 记下声音包。战斗按键与跃步请求按通道构造载荷，
   所以 `gametest` 编译期加 Framework 的 Fabric 模组（`compileOnly`，运行时由完整装配提供）。

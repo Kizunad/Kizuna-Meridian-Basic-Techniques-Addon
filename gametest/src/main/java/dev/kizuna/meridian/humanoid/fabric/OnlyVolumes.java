@@ -9,21 +9,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 卫道士旧用例的批次配置：学卷表每档只留破门卷，批次结束换回启动时装配的配置。 */
-final class DoorBreakerOnlyVolumes {
-    private static final String DOOR_BREAKER_PREFIX = "meridian_door_breaker:";
+/** 批次配置：学卷表每档只留一个功法目录的卷，批次结束换回启动时装配的配置。 */
+final class OnlyVolumes {
     private static HumanoidBrainConfig previous;
 
-    private DoorBreakerOnlyVolumes() {
+    private OnlyVolumes() {
         // 只在批次前后切换全局配置。
     }
 
-    static void install() {
-        // 记下批次前的配置；其余各节照旧，基础三卷不发。
+    static void install(String prefix) {
+        // 记下批次前的配置；其余各节照旧，只发卷 ID 以 prefix 开头的卷。
         HumanoidBrainConfig current = HumanoidBrain.config();
         previous = current;
         HumanoidBrain.configure(new HumanoidBrainConfig(current.schedule(), current.threat(), current.assessment(),
-                current.response(), doorBreakerVolumes(current.volumes())));
+                current.response(), kept(current.volumes(), prefix)));
     }
 
     static void restore() {
@@ -35,21 +34,16 @@ final class DoorBreakerOnlyVolumes {
         previous = null;
     }
 
-    private static VolumeTable doorBreakerVolumes(VolumeTable table) {
-        // 物种与档位不变，每档只留破门目录的卷。
+    private static VolumeTable kept(VolumeTable table, String prefix) {
+        // 物种与档位不变，每档只留这个目录的卷。
         var species = new HashMap<String, Map<HumanoidTier, List<VolumeTable.Grant>>>();
         table.species().forEach((entityId, tiers) -> {
             var kept = new EnumMap<HumanoidTier, List<VolumeTable.Grant>>(HumanoidTier.class);
-            tiers.forEach((tier, grants) -> kept.put(tier, doorBreakerGrants(grants)));
+            tiers.forEach((tier, grants) -> kept.put(tier, grants.stream()
+                    .filter(grant -> grant.volume().startsWith(prefix))
+                    .toList()));
             species.put(entityId, kept);
         });
         return new VolumeTable(species);
-    }
-
-    private static List<VolumeTable.Grant> doorBreakerGrants(List<VolumeTable.Grant> grants) {
-        // 只留破门目录的卷。
-        return grants.stream()
-                .filter(grant -> grant.volume().startsWith(DOOR_BREAKER_PREFIX))
-                .toList();
     }
 }

@@ -12,6 +12,7 @@
       "dev.kizuna.meridian.human.fabric.BasicTechniquesGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerCombatAssemblyGameTest",
+      "dev.kizuna.meridian.human.fabric.PlayerFollowUpAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.KnockMultihitGameTest",
       "dev.kizuna.meridian.human.fabric.LegTechniqueGameTest",
       "dev.kizuna.meridian.human.fabric.LightBodyGameTest",

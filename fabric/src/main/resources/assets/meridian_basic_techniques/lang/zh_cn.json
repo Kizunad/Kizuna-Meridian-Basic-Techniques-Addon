@@ -12,6 +12,8 @@
   "technique.meridian_basic_techniques.light_step.note": "20 秒内跳跃变成朝准星的跃步，最远 7 格；潜行时照常跳",
   "technique.meridian_basic_techniques.charge": "蓄力",
   "technique.meridian_basic_techniques.charge.note": "两臂力量涨三成，几秒后退去，随后乏力一阵",
+  "technique.meridian_basic_techniques.guard": "格挡",
+  "technique.meridian_basic_techniques.guard.note": "按住抬臂护住头和胸腹，正面来的拳脚和箭落在前臂上、轻三成；松手放下",
   "effect.meridian_basic_techniques.light_body": "轻身",
   "effect.meridian_basic_techniques.light_body.legs": "两腿",
   "effect.meridian_basic_techniques.breath": "调息",
@@ -25,5 +27,6 @@
   "codex.intro.meridian_basic_techniques.basic": "挑夫歇脚纳气、猎户观羊跳绝壁、铁匠沉气打铁，走江湖安身立命的吐纳蓄劲底子。",
   "codex.power.meridian_basic_techniques.breath_volume": "歇步宽胸纳气，长路奔波之后徐徐吐浊，两臂与两腿的疲惫自能飞快消解。",
   "codex.power.meridian_basic_techniques.light_step_volume": "学来陡崖山羊的借力巧劲，蹄尖微点借反劲收腹一纵，便能跃上一人高崖。",
-  "codex.power.meridian_basic_techniques.charge_volume": "学铁匠举锤沉肩，把胸腹这口气沉实稳住，再挥臂出手力道暴涨、沉猛刚劲。"
+  "codex.power.meridian_basic_techniques.charge_volume": "学铁匠举锤沉肩，把胸腹这口气沉实稳住，再挥臂出手力道暴涨、沉猛刚劲。",
+  "status_group.meridian_basic_techniques.technique": "运功"
 }

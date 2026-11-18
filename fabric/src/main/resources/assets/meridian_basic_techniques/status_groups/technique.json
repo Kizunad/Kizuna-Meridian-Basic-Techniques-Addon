@@ -1,0 +1,13 @@
+{
+  "effects": [
+    "meridian_basic_techniques:breath",
+    "meridian_basic_techniques:light_body",
+    "meridian_basic_techniques:charge"
+  ],
+  "group": {
+    "name": "status_group.meridian_basic_techniques.technique",
+    "icon": "meridian_basic_techniques:status_group/technique",
+    "merge_order": 30,
+    "display_order": 50
+  }
+}

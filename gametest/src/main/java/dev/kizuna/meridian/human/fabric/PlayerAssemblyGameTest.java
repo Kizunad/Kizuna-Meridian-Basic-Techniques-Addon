@@ -78,6 +78,7 @@ public final class PlayerAssemblyGameTest {
             var actual = TechniqueFabric.service().known(fixture.player.getUUID()).stream()
                     .map(item -> item.technique().getId())
                     .collect(Collectors.toSet());
+            context.assertTrue(actual.remove(BASIC + "guard"), "可用列表缺少天生格挡");
             context.assertTrue(actual.equals(LEARNED), "卷轴学习结果不符：" + actual);
         }
         context.succeed();

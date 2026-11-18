@@ -19,7 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public final class BasicCatalogTest {
-    private static final int TECHNIQUE_COUNT = 3;
+    private static final int TECHNIQUE_COUNT = 4;
     private static final int VOLUME_COUNT = 3;
     private static final int STEP_MUSCLES = 6;
     private static final double STEP_TOTAL_POWER = 800;
@@ -46,16 +46,18 @@ public final class BasicCatalogTest {
 
     @Test
     public void catalogValidatesIndependentVolumesAndPresentationLifetimes() throws Exception {
-        // 三卷互不依赖，轻步施放仅给予状态，其余两式播放施放表现。
+        // 三卷互不依赖；天生守式的表现只保持到生效段结束。
         var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
-        assertEquals(TECHNIQUE_COUNT, registry.definitions().size());
-        assertEquals(VOLUME_COUNT, registry.volumes().size());
+        var definitions = registry.definitions();
+        var volumes = registry.volumes();
+        assertEquals(TECHNIQUE_COUNT, definitions.size());
+        assertEquals(VOLUME_COUNT, volumes.size());
         assertEquals(1, registry.books().size());
-        for (var volume : registry.volumes()) {
+        for (var volume : volumes) {
             assertEquals(0, volume.getPrerequisiteVolumeIdsCount());
             assertEquals(1, volume.getTechniquesCount());
         }
-        for (var definition : registry.definitions()) {
+        for (var definition : definitions) {
             var effect = definition.getEffects(0);
             if (effect.hasStatusBenefit()) {
                 assertEquals(definition.getPhases().getWarmupMillis(), effect.getAtMillis());
@@ -63,18 +65,27 @@ public final class BasicCatalogTest {
                 continue;
             }
             assertEquals(0, effect.getAtMillis());
-            assertEquals(PresentationDuration.UNTIL_RECOVERY_END, effect.getPresentation().getDuration());
-            assertEquals(0, effect.getPresentation().getStartMillis());
+            var expectedDuration = PresentationDuration.UNTIL_RECOVERY_END;
+            if (definition.getInnate()) {
+                expectedDuration = PresentationDuration.UNTIL_ACTIVE_END;
+            }
+            var presentation = effect.getPresentation();
+            assertEquals(expectedDuration, presentation.getDuration());
+            assertEquals(0, presentation.getStartMillis());
             assertTrue(definition.getPresentation().getIconId().startsWith("meridian_basic_techniques:"));
         }
     }
 
     @Test
-    public void allTechniquesAcceptAnyAttributeAtOrAboveFreePhase() throws Exception {
+    public void learnedTechniquesAcceptAnyAttributeAtOrAboveFreePhase() throws Exception {
         // 三式只限制最低相态，不把属性或游离态精确匹配带回正式目录。
         var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
-        assertEquals(TECHNIQUE_COUNT, registry.definitions().size());
-        for (var definition : registry.definitions()) {
+        var definitions = registry.definitions();
+        assertEquals(TECHNIQUE_COUNT, definitions.size());
+        for (var definition : definitions) {
+            if (definition.getInnate()) {
+                continue;
+            }
             var techniqueCost = definition.getCost();
             assertEquals(1, techniqueCost.getQiCount());
             var cost = techniqueCost.getQi(0);
@@ -92,6 +103,9 @@ public final class BasicCatalogTest {
             var closed = BasicBodies.adult(realm, BasicBodies.Opening.CLOSED);
             var all = BasicBodies.adult(realm, BasicBodies.Opening.ALL);
             for (var definition : registry.definitions()) {
+                if (definition.getInnate()) {
+                    continue;
+                }
                 assertEquals(TechniqueFailure.MERIDIAN_NOT_OPENED,
                         TechniqueBinder.bind(closed, definition).getFailure());
                 assertTrue(TechniqueBinder.bind(all, definition).hasBinding());

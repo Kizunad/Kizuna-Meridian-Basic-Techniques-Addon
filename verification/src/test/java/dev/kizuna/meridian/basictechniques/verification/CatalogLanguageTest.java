@@ -16,6 +16,7 @@ import static org.junit.Assert.assertTrue;
 
 public final class CatalogLanguageTest {
     private static final String NAMESPACE = "meridian_basic_techniques";
+    private static final String GUARD = "technique.meridian_basic_techniques.guard";
 
     @Test
     public void packagedLanguagesNameEveryBookVolumeAndTechnique() throws Exception {
@@ -43,6 +44,20 @@ public final class CatalogLanguageTest {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    @Test
+    public void guardHasNameAndNoteKeysWithoutVolumeOrScroll() throws Exception {
+        // 名字和简介先保留有效占位；天生式不得因此多出卷名或卷轴物品名。
+        try (var jar = new JarFile(System.getProperty("basicTechniques.fabricJar"))) {
+            for (String locale : List.of("zh_cn", "en_us")) {
+                var language = language(jar, locale);
+                assertName(language, GUARD);
+                assertName(language, GUARD + ".note");
+                assertFalse(language.has("volume.meridian_basic_techniques.guard_volume"));
+                assertFalse(language.has("item.meridian_basic_techniques.guard_volume_scroll"));
             }
         }
     }

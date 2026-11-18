@@ -12,6 +12,8 @@
   "technique.meridian_basic_techniques.light_step.note": "for 20 s a jump becomes a leap toward the crosshair, up to 7 blocks; sneaking jumps normally",
   "technique.meridian_basic_techniques.charge": "Charge",
   "technique.meridian_basic_techniques.charge.note": "arm strength up by three tenths for a few seconds, then a spell of weakness",
+  "technique.meridian_basic_techniques.guard": "Guard",
+  "technique.meridian_basic_techniques.guard.note": "Hold to raise both forearms over head and torso; blows and arrows from the front land on a forearm, three tenths lighter. Release to lower",
   "effect.meridian_basic_techniques.light_body": "Light Body",
   "effect.meridian_basic_techniques.light_body.legs": "Leg ",
   "effect.meridian_basic_techniques.breath": "Restorative Breathing",
@@ -25,5 +27,6 @@
   "codex.intro.meridian_basic_techniques.basic": "A porter catching his breath, a hunter watching mountain goats leap crags, a smith sinking his weight into the anvil—the bare foundation of breath and brace for wandering the realm.",
   "codex.power.meridian_basic_techniques.breath_volume": "Halt your stride, open the chest, and draw in breath. After hard miles on the road, exhaling the stale air clears the ache from weary limbs in no time.",
   "codex.power.meridian_basic_techniques.light_step_volume": "Borrowed from crag goats on sheer cliffs: a light tap off the stone, a tuck of the waist, and you spring clean over a ledge taller than a man.",
-  "codex.power.meridian_basic_techniques.charge_volume": "Learned from smiths raising heavy hammers: sink the shoulders, pack your breath deep in the gut, and the blow lands with brutal, unyielding weight."
+  "codex.power.meridian_basic_techniques.charge_volume": "Learned from smiths raising heavy hammers: sink the shoulders, pack your breath deep in the gut, and the blow lands with brutal, unyielding weight.",
+  "status_group.meridian_basic_techniques.technique": "Techniques"
 }

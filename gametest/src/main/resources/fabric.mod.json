@@ -10,6 +10,7 @@
     ],
     "fabric-gametest": [
       "dev.kizuna.meridian.human.fabric.BasicTechniquesGameTest",
+      "dev.kizuna.meridian.human.fabric.GuardAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerCombatAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.PlayerFollowUpAssemblyGameTest",

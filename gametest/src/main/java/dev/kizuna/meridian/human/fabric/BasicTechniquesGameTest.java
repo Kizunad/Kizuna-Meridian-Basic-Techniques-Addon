@@ -14,6 +14,7 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.CastRequest;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.HorizontalDirection;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueReference;
+import dev.kizuna.meridian.technique.server.TechniqueState;
 import dev.kizuna.meridian.vanilla.DamagePreferences;
 import dev.kizuna.meridian.vanilla.MuscleRules;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -41,6 +42,7 @@ public final class BasicTechniquesGameTest {
     private static final int CHARGE_TEST_TICKS = 300;
     private static final int BREATH_TEST_TICKS = 140;
     private static final int TECHNIQUE_COUNT = 3;
+    private static final int INNATE_COUNT = 1;
     private static final int PREPARE_TICKS = 25;
     private static final int PEAK_TICKS = 65;
     private static final int DECLINE_TICKS = 107;
@@ -71,18 +73,22 @@ public final class BasicTechniquesGameTest {
         // 清单发现使用 Fabric 加载器，学习提交使用正式在线玩家宿主。
         try (var fixture = prepared(context)) {
             var service = TechniqueFabric.service();
+            var playerId = fixture.player.getUUID();
             context.assertTrue(service.registry().sources().stream().anyMatch(source -> source.source().equals(
                     "meridian_basic_techniques:data/meridian_basic_techniques/technique_catalog.txtpb")),
                     "没有通过真实清单发现目录");
             int learnedCount = 0;
             for (String path : new String[]{"charge", "breath", "light_step"}) {
-                var learned = service.learn(fixture.player.getUUID(), PREFIX + path + "_volume");
+                var learned = service.learn(playerId, PREFIX + path + "_volume");
                 learnedCount++;
-                context.assertTrue(learned.size() == learnedCount, "独立卷没有新增一式：" + path);
+                context.assertTrue(learned.size() == learnedCount + INNATE_COUNT, "独立卷没有新增一式：" + path);
                 context.assertTrue(learned.stream().anyMatch(item -> item.technique().getId().equals(PREFIX + path)),
                         "完整已学列表缺少本卷功法：" + path);
             }
-            context.assertTrue(service.known(fixture.player.getUUID()).size() == TECHNIQUE_COUNT, "三式未写入身体");
+            context.assertTrue(service.known(playerId).size() == TECHNIQUE_COUNT + INNATE_COUNT,
+                    "可用列表缺少卷内三式或天生格挡");
+            context.assertTrue(TechniqueState.read(fixture.body().snapshot()).getKnownCount() == TECHNIQUE_COUNT,
+                    "学习存档应只包含卷内三式");
         }
         context.succeed();
     }

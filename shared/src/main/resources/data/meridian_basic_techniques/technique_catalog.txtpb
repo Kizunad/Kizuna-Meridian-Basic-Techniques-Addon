@@ -1,7 +1,7 @@
 # 数值为占位；费用是整式总额，按已绑定经脉均分。
 schema_version: 1
 namespace: "meridian_basic_techniques"
-binding_templates { id: "human:adult" version: 1 }
+binding_template_groups: "human:humanoid"
 definitions {
   id: "meridian_basic_techniques:guard"
   version: 1

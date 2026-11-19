@@ -11,7 +11,7 @@ definitions {
   innate: true
   cost {}
   phases {
-    warmup_millis: 200
+    warmup_millis: 400
     active_duration: ACTIVE_DURATION_UNTIL_RELEASE
     recovery_millis: 300
     interruptible_by_damage: true
@@ -29,7 +29,7 @@ definitions {
     }
   }
   effects {
-    at_millis: 200
+    at_millis: 400
     guard {
       angle { value: 120 unit: DEGREE }
       damage_multiplier { value: 0.7 unit: RATIO }

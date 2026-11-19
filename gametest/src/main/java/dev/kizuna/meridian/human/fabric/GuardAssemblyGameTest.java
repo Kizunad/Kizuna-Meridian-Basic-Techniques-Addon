@@ -1,5 +1,6 @@
 package dev.kizuna.meridian.human.fabric;
 
+import com.google.gson.JsonParser;
 import dev.kizuna.meridian.core.Realm;
 import dev.kizuna.meridian.core.MeridianOpening;
 import dev.kizuna.meridian.protocol.pb.BodyMessages.BodySnapshot;
@@ -33,7 +34,15 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOUT;
@@ -42,7 +51,7 @@ import static dev.kizuna.meridian.human.fabric.BasicGameTestTicks.DEFAULT_TIMEOU
 public final class GuardAssemblyGameTest {
     private static final String GUARD = "meridian_basic_techniques:guard";
     private static final String CHARGE = "meridian_basic_techniques:charge";
-    private static final int WARMUP_TICKS = 4;
+    private static final long MILLIS_PER_TICK = 50;
     private static final int RECOVERY_TICKS = 6;
     private static final int HOLD_TICKS = 60;
     private static final long RECOVERY_MILLIS = 300;
@@ -53,6 +62,44 @@ public final class GuardAssemblyGameTest {
     private static final double ATTACK_DISTANCE = 2;
     private static final double EPSILON = 0.000001;
     private static final List<String> FOREARMS = List.of("left_forearm", "right_forearm");
+    private static final String PA_INDEX = "/assets/kizuna_players_animation/player_anim_index.json";
+    private static final long MILLIS_PER_SECOND = 1000;
+
+    @GameTest(maxTicks = DEFAULT_TIMEOUT)
+    public void guardWindowOpensAsBothRaiseClipsFinish(GameTestHelper context) {
+        // 从装配内两种正式动作读呼吸入口，再到开窗前一拍和开窗当拍查询权威防御。
+        var fixture = GuardTestPlayers.mortal(context);
+        context.runBeforeTestEnd(fixture::close);
+        start(context, fixture);
+        var cast = active(fixture);
+        long warmup = cast.getWarmupEndMillis() - cast.getStartedMillis();
+        var wanted = Set.of("guard_arms", "guard_weapon");
+        var found = new HashSet<String>();
+        var stream = GuardAssemblyGameTest.class.getResourceAsStream(PA_INDEX);
+        try (var reader = new InputStreamReader(Objects.requireNonNull(stream, PA_INDEX), StandardCharsets.UTF_8)) {
+            var index = JsonParser.parseReader(reader).getAsJsonObject().getAsJsonArray("animations");
+            for (var element : index) {
+                var entry = element.getAsJsonObject();
+                String id = entry.get("id").getAsString();
+                if (wanted.contains(id)) {
+                    var seconds = entry.getAsJsonArray("loop_region").get(0).getAsBigDecimal();
+                    long raiseMillis = seconds.multiply(BigDecimal.valueOf(MILLIS_PER_SECOND)).longValueExact();
+                    context.assertTrue(warmup == raiseMillis, id + " 抬手 " + raiseMillis + " ms，守窗 " + warmup);
+                    found.add(id);
+                }
+            }
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
+        context.assertTrue(found.equals(wanted), "缺少抱架剪辑 " + found);
+        long ticks = warmupTicks(fixture);
+        context.runAfterDelay(ticks - 1, () -> context.assertTrue(
+                TechniqueFabric.service().activeGuard(fixture.player.getUUID()).isEmpty(), "成架前一拍已经能挡"));
+        context.runAfterDelay(ticks, () -> {
+            assertGuarding(context, fixture);
+            context.succeed();
+        });
+    }
 
     @GameTest(maxTicks = DEFAULT_TIMEOUT)
     public void freshMortalStartsInnateGuardWithoutLearningOrHeldItemGate(GameTestHelper context) {
@@ -110,7 +157,7 @@ public final class GuardAssemblyGameTest {
         UUID playerId = fixture.player.getUUID();
         service.learn(playerId, "meridian_basic_techniques:charge_volume");
         start(context, fixture);
-        context.runAfterDelay(WARMUP_TICKS, () -> {
+        context.runAfterDelay(warmupTicks(fixture), () -> {
             assertGuarding(context, fixture);
             rejectCharge(context, fixture);
             release(context, fixture);
@@ -135,7 +182,7 @@ public final class GuardAssemblyGameTest {
         var fixture = GuardTestPlayers.mortal(context);
         var attacker = attacker(context, fixture, ATTACK_DISTANCE);
         start(context, fixture);
-        context.runAfterDelay(WARMUP_TICKS, () -> {
+        context.runAfterDelay(warmupTicks(fixture), () -> {
             assertGuarding(context, fixture);
             var hit = strike(fixture, fixture.player.damageSources().mobAttack(attacker));
             assertForearm(context, hit);
@@ -153,7 +200,7 @@ public final class GuardAssemblyGameTest {
         var fixture = GuardTestPlayers.mortal(context);
         var attacker = attacker(context, fixture, -ATTACK_DISTANCE);
         start(context, fixture);
-        context.runAfterDelay(WARMUP_TICKS, () -> {
+        context.runAfterDelay(warmupTicks(fixture), () -> {
             assertGuarding(context, fixture);
             var hit = strike(fixture, fixture.player.damageSources().mobAttack(attacker));
             assertHead(context, hit);
@@ -171,7 +218,7 @@ public final class GuardAssemblyGameTest {
         arrow.setPos(fixture.player.position().add(0, 0, ATTACK_DISTANCE));
         arrow.setDeltaMovement(0, 0, -1);
         start(context, fixture);
-        context.runAfterDelay(WARMUP_TICKS, () -> {
+        context.runAfterDelay(warmupTicks(fixture), () -> {
             assertGuarding(context, fixture);
             assertForearm(context, strike(fixture, source(context, DamageTypes.ARROW, arrow)));
             fixture.close();
@@ -188,7 +235,7 @@ public final class GuardAssemblyGameTest {
         trident.setPos(fixture.player.position().add(0, 0, ATTACK_DISTANCE));
         trident.setDeltaMovement(0, 0, -1);
         start(context, fixture);
-        context.runAfterDelay(WARMUP_TICKS, () -> {
+        context.runAfterDelay(warmupTicks(fixture), () -> {
             assertGuarding(context, fixture);
             assertHead(context, strike(fixture, source(context, DamageTypes.TRIDENT, trident)));
             fixture.close();
@@ -226,6 +273,12 @@ public final class GuardAssemblyGameTest {
                 .anyMatch(entry -> entry.technique().getId().equals(GUARD)), "新玩家不认识天生格挡");
         var ordinary = service.cast(playerId, request(fixture, CHARGE));
         context.assertTrue(ordinary.getFailure() == TechniqueFailure.NOT_KNOWN, "未学普通式也被放行");
+    }
+
+    private static long warmupTicks(BasicTestPlayer fixture) {
+        // 使用本次服务端施放的实际起手边界。
+        var cast = active(fixture);
+        return Math.ceilDiv(cast.getWarmupEndMillis() - cast.getStartedMillis(), MILLIS_PER_TICK);
     }
 
     private static void start(GameTestHelper context, BasicTestPlayer fixture) {

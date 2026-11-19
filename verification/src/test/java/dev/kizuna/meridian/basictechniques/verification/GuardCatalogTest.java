@@ -26,7 +26,7 @@ import static org.junit.Assert.assertTrue;
 public final class GuardCatalogTest {
     private static final String GUARD = "meridian_basic_techniques:guard";
     private static final String ARROWS = "meridian_basic_techniques:guard_arrows";
-    private static final long WARMUP_MILLIS = 200;
+    private static final long WARMUP_MILLIS = 400;
     private static final long RECOVERY_MILLIS = 300;
     private static final double ANGLE_DEGREES = 120;
     private static final double DAMAGE_MULTIPLIER = 0.7;

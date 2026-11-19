@@ -22,7 +22,7 @@ definitions {
   effects {
     at_millis: 0
     presentation {
-      # 抱架暂借现有双手格挡，正式剪辑交付后只替换此资源 ID。
+      # 玩家宿主按主手选择抱架片段，切换时沿用这次表现的时钟。
       id: "meridian_basic_techniques:guard_arms"
       duration: UNTIL_ACTIVE_END
       start_millis: 0
@@ -49,7 +49,7 @@ definitions {
     # 暂用现有手臂蓄力图标，避免目录引用缺失资源。
     icon_id: "meridian_basic_techniques:charge"
     display_name: "格挡"
-    description: "村口的老更夫夜里撞见醉汉抡棍，不躲也不跑，只把两条小臂往头前一并，肘尖收住心口。棍子砸下来，疼是疼在胳膊上，头脸和胸腹却护住了。他说这算不得功夫，谁家孩子挨打时都会，只是长大了反倒忘了。"
+    description: "村口的老更夫夜里撞见醉汉抡棍，不躲也不跑，只把两条小臂往头前一并，肘尖收住心口。棍子砸下来，疼是疼在胳膊上，头脸和胸腹却护住了。他说这算不得功夫，谁家孩子挨打时都会，只是长大了反倒忘了。后来他巡夜带了把短斧，再有人抡棍，就把斧子横过来架在身前：力道多半叫斧子吃了去，胳膊上只剩一阵麻。他也说了，架得多了斧口要崩，真碎在手里的那一下，还得拿臂骨去接。"
   }
 }
 books { id: "meridian_basic_techniques:basic" display_name: "基础功法" }

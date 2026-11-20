@@ -281,7 +281,7 @@ public final class GuardAssemblyGameTest {
         return Math.ceilDiv(cast.getWarmupEndMillis() - cast.getStartedMillis(), MILLIS_PER_TICK);
     }
 
-    private static void start(GameTestHelper context, BasicTestPlayer fixture) {
+    static void start(GameTestHelper context, BasicTestPlayer fixture) {
         // 施放正式内容引用，不在测试里注入另一个守式定义。
         var outcome = TechniqueFabric.service().cast(fixture.player.getUUID(), request(fixture, GUARD));
         context.assertTrue(outcome.getFailure() == TechniqueFailure.TECHNIQUE_FAILURE_UNSPECIFIED,
@@ -289,7 +289,7 @@ public final class GuardAssemblyGameTest {
         context.assertTrue(outcome.getPhase() == CastPhase.WARMUP, "格挡未从起手开始");
     }
 
-    private static CastRequest request(BasicTestPlayer fixture, String id) {
+    static CastRequest request(BasicTestPlayer fixture, String id) {
         // 可信请求只携带真实身体和施放身份，不提供时长、费用或伤害倍率。
         var reference = TechniqueReference.newBuilder()
                 .setId(id)
@@ -307,7 +307,7 @@ public final class GuardAssemblyGameTest {
         return TechniqueState.read(fixture.body().snapshot()).getActiveCast();
     }
 
-    private static void release(GameTestHelper context, BasicTestPlayer fixture) {
+    static void release(GameTestHelper context, BasicTestPlayer fixture) {
         // 松手请求绑定当前这次施放；接受后即不能再挡后续伤害。
         var active = active(fixture);
         var request = EndActiveRequest.newBuilder()
@@ -344,7 +344,7 @@ public final class GuardAssemblyGameTest {
         }
     }
 
-    private static LivingEntity attacker(GameTestHelper context, BasicTestPlayer fixture, double forwardDistance) {
+    static LivingEntity attacker(GameTestHelper context, BasicTestPlayer fixture, double forwardDistance) {
         // 牛没有身体肌肉倍率且不加入世界，固定来向而不引入自主攻击和寻路。
         var attacker = EntityTypes.COW.create(context.getLevel(), EntitySpawnReason.COMMAND);
         context.assertTrue(attacker != null, "无法创建近战来源");

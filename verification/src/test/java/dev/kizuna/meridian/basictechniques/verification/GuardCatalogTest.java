@@ -31,6 +31,10 @@ public final class GuardCatalogTest {
     private static final double ANGLE_DEGREES = 120;
     private static final double DAMAGE_MULTIPLIER = 0.7;
     private static final double MOVEMENT_MULTIPLIER = 0.4;
+    private static final double JOULES_PER_SECOND = 10000;
+    private static final double JOULES_PER_DAMAGE = 3000;
+    private static final long BREAK_MILLIS = 1750;
+    private static final double RESTART_RATIO = 0.2;
 
     @Test
     public void guardIsInnateAndAbsentFromEveryVolume() throws Exception {
@@ -72,6 +76,11 @@ public final class GuardCatalogTest {
         var guard = effect.getGuard();
         var angle = guard.getAngle();
         var multiplier = guard.getDamageMultiplier();
+        var stamina = guard.getStamina();
+        assertEquals(JOULES_PER_SECOND, stamina.getJoulesPerSecond(), 0);
+        assertEquals(JOULES_PER_DAMAGE, stamina.getJoulesPerDamagePrevented(), 0);
+        assertEquals(BREAK_MILLIS, stamina.getBreakMillis());
+        assertEquals(RESTART_RATIO, stamina.getRestartRatio(), 0);
         assertEquals(WARMUP_MILLIS, effect.getAtMillis());
         assertEquals(ANGLE_DEGREES, angle.getValue(), 0);
         assertEquals(Unit.DEGREE, angle.getUnit());

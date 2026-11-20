@@ -10,6 +10,8 @@
     ],
     "fabric-gametest": [
       "dev.kizuna.meridian.human.fabric.BasicTechniquesGameTest",
+      "dev.kizuna.meridian.human.fabric.RebornBreathingMeasurements",
+      "dev.kizuna.meridian.human.fabric.RebornGrantGameTest",
       "dev.kizuna.meridian.human.fabric.GuardAssemblyGameTest",
       "dev.kizuna.meridian.human.fabric.GuardStaminaGameTest",
       "dev.kizuna.meridian.human.fabric.GuardHitCostGameTest",

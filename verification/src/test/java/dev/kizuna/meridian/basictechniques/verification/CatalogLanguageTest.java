@@ -3,6 +3,7 @@ package dev.kizuna.meridian.basictechniques.verification;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.kizuna.meridian.technique.server.TechniqueScrollText;
+import dev.kizuna.meridian.technique.server.TechniqueScrollCatalog;
 import org.junit.Test;
 
 import java.io.InputStreamReader;
@@ -30,9 +31,16 @@ public final class CatalogLanguageTest {
                 }
                 for (var volume : catalog.getVolumesList()) {
                     assertName(language, TechniqueScrollText.key("volume", volume.getId()));
-                    assertName(language, TechniqueScrollText.key("item", volume.getId() + "_scroll"));
+                    if (TechniqueScrollCatalog.hasScrollItem(volume)) {
+                        assertName(language, TechniqueScrollText.key("item", volume.getId() + "_scroll"));
+                    }
                 }
                 for (var definition : catalog.getDefinitionsList()) {
+                    if (definition.hasMaintainedBreathing()) {
+                        var id = definition.getMaintainedBreathing().getEffectId();
+                        assertName(language, TechniqueScrollText.key("effect", id));
+                        assertNotNull(jar.getEntry("assets/" + id.replace(":", "/textures/mob_effect/") + ".png"));
+                    }
                     assertName(language, TechniqueScrollText.key("technique", definition.getId()));
                     var presentation = definition.getPresentation();
                     assertFalse(presentation.getDisplayName().isBlank());

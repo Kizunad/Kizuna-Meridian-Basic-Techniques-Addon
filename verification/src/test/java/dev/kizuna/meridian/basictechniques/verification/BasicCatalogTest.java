@@ -8,6 +8,7 @@ import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.ScrollDrop;
 import dev.kizuna.meridian.technique.protocol.pb.TechniqueMessages.TechniqueFailure;
 import dev.kizuna.meridian.technique.server.TechniqueBinder;
 import dev.kizuna.meridian.technique.server.TechniqueCatalogManifest;
+import dev.kizuna.meridian.technique.server.TechniqueScrollCatalog;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -19,8 +20,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public final class BasicCatalogTest {
-    private static final int TECHNIQUE_COUNT = 4;
-    private static final int VOLUME_COUNT = 3;
+    private static final int TECHNIQUE_COUNT = 5;
+    private static final int VOLUME_COUNT = 4;
+    private static final int BOOK_COUNT = 2;
+    private static final String BASIC_BOOK = "meridian_basic_techniques:basic";
+    private static final String REBORN = "meridian_basic_techniques:later_breathing";
+    private static final String REBORN_BOOK = REBORN + "_book";
+    private static final String REBORN_VOLUME = REBORN + "_volume";
     private static final int STEP_MUSCLES = 6;
     private static final double STEP_TOTAL_POWER = 800;
     private static final double EPSILON = 0.000001;
@@ -52,12 +58,16 @@ public final class BasicCatalogTest {
         var volumes = registry.volumes();
         assertEquals(TECHNIQUE_COUNT, definitions.size());
         assertEquals(VOLUME_COUNT, volumes.size());
-        assertEquals(1, registry.books().size());
+        assertEquals(BOOK_COUNT, registry.books().size());
         for (var volume : volumes) {
             assertEquals(0, volume.getPrerequisiteVolumeIdsCount());
             assertEquals(1, volume.getTechniquesCount());
         }
         for (var definition : definitions) {
+            if (definition.getId().equals(REBORN)) {
+                assertTrue(definition.hasMaintainedBreathing());
+                continue;
+            }
             var effect = definition.getEffects(0);
             if (effect.hasStatusBenefit()) {
                 assertEquals(definition.getPhases().getWarmupMillis(), effect.getAtMillis());
@@ -83,7 +93,7 @@ public final class BasicCatalogTest {
         var definitions = registry.definitions();
         assertEquals(TECHNIQUE_COUNT, definitions.size());
         for (var definition : definitions) {
-            if (definition.getInnate()) {
+            if (definition.getInnate() || definition.getId().equals(REBORN)) {
                 continue;
             }
             var techniqueCost = definition.getCost();
@@ -104,6 +114,10 @@ public final class BasicCatalogTest {
             var all = BasicBodies.adult(realm, BasicBodies.Opening.ALL);
             for (var definition : registry.definitions()) {
                 if (definition.getInnate()) {
+                    continue;
+                }
+                if (definition.getId().equals(REBORN)) {
+                    assertTrue(TechniqueBinder.bind(closed, definition).hasBinding());
                     continue;
                 }
                 assertEquals(TechniqueFailure.MERIDIAN_NOT_OPENED,
@@ -150,10 +164,13 @@ public final class BasicCatalogTest {
     }
 
     @Test
-    public void everyVolumeDropsFromAllSevenHumanoidsAtALowerChance() throws Exception {
+    public void originalBookDropsFromAllSevenHumanoidsAtALowerChance() throws Exception {
         // 七种生人修成后都会这三卷，所以每卷向七种生人各声明一项；人人都会，概率占位比单种生人的功法低。
         var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
         for (var volume : registry.volumes()) {
+            if (!volume.getBookId().equals(BASIC_BOOK)) {
+                continue;
+            }
             List<String> entities = volume.getScrollDropsList().stream()
                     .map(ScrollDrop::getEntityType)
                     .toList();
@@ -162,5 +179,20 @@ public final class BasicCatalogTest {
                 assertEquals(volume.getId(), SCROLL_DROP_CHANCE, drop.getChance(), 0);
             }
         }
+    }
+
+    @Test
+    public void rebornVolumeIsExclusiveAndHasNoScroll() throws Exception {
+        // 从实际注册的书卷查来源，同时防止读基础功法时顺带学到这一式。
+        var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
+        var volume = registry.findVolume(REBORN_VOLUME).orElseThrow();
+        assertFalse("出身卷生成了实体卷轴", TechniqueScrollCatalog.hasScrollItem(volume));
+        assertEquals(0, volume.getScrollDropsCount());
+        assertEquals(REBORN_BOOK, volume.getBookId());
+        assertEquals(REBORN, volume.getTechniques(0).getId());
+        assertEquals(1, registry.volumes().stream().filter(v -> v.getBookId().equals(REBORN_BOOK)).count());
+        assertEquals(1, registry.volumes().stream().flatMap(v -> v.getTechniquesList().stream())
+                .filter(ref -> ref.getId().equals(REBORN)).count());
+        assertFalse("未学也能使用出身功法", registry.findLatest(REBORN).orElseThrow().getInnate());
     }
 }

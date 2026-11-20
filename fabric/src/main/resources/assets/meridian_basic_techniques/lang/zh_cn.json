@@ -1,4 +1,11 @@
 {
+  "book.meridian_basic_techniques.later_breathing_book": "后世吐纳法",
+  "volume.meridian_basic_techniques.later_breathing_volume": "吐纳篇",
+  "technique.meridian_basic_techniques.later_breathing": "后世吐纳法",
+  "technique.meridian_basic_techniques.later_breathing.note": "前世记下的一门吐纳之法。",
+  "effect.meridian_basic_techniques.later_breathing": "后世吐纳法",
+  "codex.intro.meridian_basic_techniques.later_breathing_book": "前世记下的一门吐纳之法。",
+  "codex.power.meridian_basic_techniques.later_breathing_volume": "吐纳时可运此法。",
   "book.meridian_basic_techniques.basic": "基础功法",
   "volume.meridian_basic_techniques.breath_volume": "调息卷",
   "item.meridian_basic_techniques.breath_volume_scroll": "基础功法·调息卷",

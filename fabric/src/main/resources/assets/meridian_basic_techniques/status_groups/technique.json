@@ -2,7 +2,8 @@
   "effects": [
     "meridian_basic_techniques:breath",
     "meridian_basic_techniques:light_body",
-    "meridian_basic_techniques:charge"
+    "meridian_basic_techniques:charge",
+    "meridian_basic_techniques:later_breathing"
   ],
   "group": {
     "name": "status_group.meridian_basic_techniques.technique",

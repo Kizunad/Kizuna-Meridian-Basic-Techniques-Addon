@@ -1,4 +1,11 @@
 {
+  "book.meridian_basic_techniques.later_breathing_book": "Breathing from a Later Age",
+  "volume.meridian_basic_techniques.later_breathing_volume": "Breathing Chapter",
+  "technique.meridian_basic_techniques.later_breathing": "Breathing from a Later Age",
+  "technique.meridian_basic_techniques.later_breathing.note": "A breathing practice remembered from a former life.",
+  "effect.meridian_basic_techniques.later_breathing": "Breathing from a Later Age",
+  "codex.intro.meridian_basic_techniques.later_breathing_book": "A breathing practice remembered from a former life.",
+  "codex.power.meridian_basic_techniques.later_breathing_volume": "Maintain the practice while gathering qi.",
   "book.meridian_basic_techniques.basic": "Basic Techniques",
   "volume.meridian_basic_techniques.breath_volume": "Breathing",
   "item.meridian_basic_techniques.breath_volume_scroll": "Basic Techniques·Breathing",

@@ -432,3 +432,32 @@ definitions {
     description: "村东铁匠打铁，重锤举过头顶时，总要在半空停上半息，等沉肩把胸腹这口气沉实了，才砸向烧红的铁砧。后来有练把式的常站在炉边看，把这一顿学了去，成了发力前的根基。"
   }
 }
+
+books { id: "meridian_basic_techniques:later_breathing_book" display_name: "后世吐纳法" }
+volumes {
+  id: "meridian_basic_techniques:later_breathing_volume"
+  book_id: "meridian_basic_techniques:later_breathing_book"
+  display_name: "吐纳篇"
+  scroll_item: false
+  techniques { id: "meridian_basic_techniques:later_breathing" version: 1 }
+}
+definitions {
+  id: "meridian_basic_techniques:later_breathing"
+  version: 1
+  category: BUFF
+  minimum_realm: WANDERING_QI
+  cost {}
+  phases { warmup_millis: 100 active_millis: 0 recovery_millis: 0 interruptible_by_damage: true }
+  cooldown_millis: 0
+  maintained_breathing {
+    effect_id: "meridian_basic_techniques:later_breathing"
+    color_rgb: 3178400
+    qi_per_second: 0.005
+    factors { intake_multiplier: 1.5 respiratory_work_multiplier: 0.5 }
+  }
+  presentation {
+    icon_id: "meridian_basic_techniques:breath"
+    display_name: "后世吐纳法"
+    description: "前世记下的一门吐纳之法。"
+  }
+}

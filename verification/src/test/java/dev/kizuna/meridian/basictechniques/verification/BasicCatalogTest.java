@@ -182,11 +182,11 @@ public final class BasicCatalogTest {
     }
 
     @Test
-    public void rebornVolumeIsExclusiveAndHasNoScroll() throws Exception {
-        // 从实际注册的书卷查来源，同时防止读基础功法时顺带学到这一式。
+    public void rebornVolumeHasScrollItemButNoSurvivalDrop() throws Exception {
+        // 出身卷可以由创造栏或命令取得，但不声明任何生存掉落来源。
         var registry = BasicTechniquesCatalog.registry(BasicTechniquesCatalog.load());
         var volume = registry.findVolume(REBORN_VOLUME).orElseThrow();
-        assertFalse("出身卷生成了实体卷轴", TechniqueScrollCatalog.hasScrollItem(volume));
+        assertTrue("出身卷没有生成实体卷轴", TechniqueScrollCatalog.hasScrollItem(volume));
         assertEquals(0, volume.getScrollDropsCount());
         assertEquals(REBORN_BOOK, volume.getBookId());
         assertEquals(REBORN, volume.getTechniques(0).getId());

@@ -68,7 +68,9 @@ public final class PlayerAssemblyGameTest {
                 .map(stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
                 .collect(Collectors.toSet());
         var reborn = Identifier.parse(BASIC + "later_breathing_volume_scroll");
-        context.assertFalse(BuiltInRegistries.ITEM.containsKey(reborn), "出身专有卷被注册为物品");
+        context.assertTrue(BuiltInRegistries.ITEM.containsKey(reborn), "出身卷轴没有注册为物品");
+        context.assertTrue(displayed.contains(reborn.toString()) && searchable.contains(reborn.toString()),
+                "创造栏缺出身卷轴");
         for (String volume : VOLUMES) {
             String scrollId = volume + "_scroll";
             context.assertTrue(displayed.contains(scrollId) && searchable.contains(scrollId), "创造栏缺卷：" + volume);

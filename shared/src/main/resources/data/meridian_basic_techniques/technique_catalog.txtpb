@@ -433,12 +433,11 @@ definitions {
   }
 }
 
-books { id: "meridian_basic_techniques:later_breathing_book" display_name: "后世吐纳法" }
+books { id: "meridian_basic_techniques:later_breathing_book" display_name: "溯息经" }
 volumes {
   id: "meridian_basic_techniques:later_breathing_volume"
   book_id: "meridian_basic_techniques:later_breathing_book"
-  display_name: "吐纳篇"
-  scroll_item: false
+  display_name: "纳息篇"
   techniques { id: "meridian_basic_techniques:later_breathing" version: 1 }
 }
 definitions {
@@ -457,7 +456,7 @@ definitions {
   }
   presentation {
     icon_id: "meridian_basic_techniques:breath"
-    display_name: "后世吐纳法"
-    description: "前世记下的一门吐纳之法。"
+    display_name: "溯息诀"
+    description: "运功须以真元维持，即使未在吐纳，真元也会渐渐耗去。吐纳时纳气更多，呼吸也较省力。"
   }
 }

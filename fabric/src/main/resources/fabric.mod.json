@@ -3,7 +3,13 @@
   "id": "meridian_basic_techniques",
   "version": "${version}",
   "name": "基础功法",
-  "description": "调息、轻步、蓄力：一书三卷的基础功法数据与客户端资源",
+  "contact": {
+    "homepage": "https://github.com/Kizunad/Kizuna-Meridian-Basic-Techniques-Addon",
+    "sources": "https://github.com/Kizunad/Kizuna-Meridian-Basic-Techniques-Addon",
+    "issues": "https://github.com/Kizunad/Kizuna-Meridian-Basic-Techniques-Addon/issues"
+  },
+  "icon": "assets/meridian_basic_techniques/icon.png",
+  "description": "Learn breath control, light footwork and focused strikes from three volumes of basic techniques.\n通过三卷基础功法学习调息、轻步和蓄力。",
   "authors": ["Kizunad"],
   "license": "PolyForm-Noncommercial-1.0.0",
   "environment": "*",

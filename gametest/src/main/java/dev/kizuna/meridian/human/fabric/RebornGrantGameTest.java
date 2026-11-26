@@ -75,8 +75,9 @@ public final class RebornGrantGameTest {
             context.assertFalse(view.hasEnvironment() || view.getChoicesCount() > 0,
                     "基础吐纳泄露环境或聚气配方");
             var source = player.createCommandSourceStack().withPermission(LevelBasedPermissionSet.OWNER);
-            int assigned = BasicTestCommands.run(source, "meridian debug origin set @s meridian_humanoid:farmer");
-            context.assertTrue(assigned > 0, "无法改换农户出身");
+            int assigned = BasicTestCommands.run(source,
+                    "meridian debug origin set @s meridian_basic_techniques_test:untrained");
+            context.assertTrue(assigned > 0, "无法改换测试出身");
             context.assertFalse(body.breathingActive(), "撤掉天赋以后自动吐纳仍在运行");
             context.assertTrue(beginBreathing(fixture).getFailure().getCode() == FailureCode.ACCESS_DENIED,
                     "普通出身仍能吐纳");
